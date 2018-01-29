@@ -13,12 +13,12 @@ recording = False
 
 # Super smash bros doesn't need all the buttons on a controller
 rightTrigger = False
+leftTrigger = False
 southButton = False
 westButton = False
 eastButton = False
 northButton = False
 rightBumper = False
-leftBumper = False
 leftAnalogX = 0
 leftAnalogY = 0
 rightAnalogX = 0
@@ -56,6 +56,11 @@ def listenForGamepad():
 					rightBumper = True
 				else:
 					rightBumper = False
+			elif event.code == "ABS_LZ":
+				if event.state:
+					leftTrigger = True
+				else:
+					leftTrigger = False
 			elif event.code == "ABS_RZ":
 				if event.state == 255:
 					rightTrigger = True
@@ -95,14 +100,14 @@ def listenForGamepad():
 					recordButtonReleased = True
 
 def createControllerBinary():
-	global rightTrigger, southButton, westButton, eastButton, northButton, rightBumper, leftBumper, leftAnalogX, leftAnalogY, rightAnalogX, rightAnalogY
+	global rightTrigger, leftTrigger, southButton, westButton, eastButton, northButton, rightBumper, leftAnalogX, leftAnalogY, rightAnalogX, rightAnalogY
 	# a float is 4 bytes, there are 4 floats for the analog sticks and 1 byte for the buttons
 	rax = bytearray(struct.pack('f', rightAnalogX))
 	ray = bytearray(struct.pack('f', rightAnalogY))
 	lax = bytearray(struct.pack('f', leftAnalogX))
 	lay = bytearray(struct.pack('f', leftAnalogY))
 	b = bytearray(17)
-	b[0] = rightTrigger | (southButton << 1) | (westButton << 2) | (eastButton << 3) | (northButton << 4) | (rightBumper << 5) | (leftBumper << 6)
+	b[0] = rightTrigger | (leftTrigger << 1) | (southButton << 2) | (westButton << 3) | (eastButton << 4) | (northButton << 5) | (rightBumper << 6)
 	for i in range(4):
 		b[1 + i] = rax[i]
 		b[5 + i] = ray[i]
