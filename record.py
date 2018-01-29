@@ -117,6 +117,7 @@ def createControllerBinary():
 
 def record():
 	current = recording
+	videoOutFileNamePrefix = ''
 	videoOutFile = None
 	controllerOutFile = None
 	fourcc = cv2.VideoWriter_fourcc('M','J','P','G')
@@ -130,17 +131,28 @@ def record():
 			current = recording
 			if current:
 				start = now
-				startStr = start.strftime("%Y-%m-%d %H.%M.%S")
-				videoOutFile = cv2.VideoWriter('data/' + startStr + '.avi', fourcc, 15, (960, 540))
+				startStr = start.strftime("%Y-%m-%d_%H.%M.%S")
+				videoOutFileNamePrefix = 'data/' + startStr
+				videoOutFile = cv2.VideoWriter(videoOutFileNamePrefix + '.avi', fourcc, 15, (960, 540))
 				controllerOutFile = open('data/' + startStr + '.cont', 'wb')
 				prev = now
-				print('Recording started. ' + start.strftime("%Y-%m-%d %H:%M:%S"))
+				print('Recording started. ' + startStr)
 			else:
 				videoOutFile.release()
 				controllerOutFile.close()
 				videoOutFile = None
 				dif = now - start
 				print('\tRecording stopped. ' + str(dif.seconds) + ' seconds.')
+
+				# compress the .avi file
+				print('C:\\Users\\Nick\\Desktop\\ffmpeg-20180127-a026a3e-win64-static\\bin\\ffmpeg.exe -i ' + videoOutFileNamePrefix + '.avi -c:v libx264 -pix_fmt yuv420p ' + videoOutFileNamePrefix + '.mp4')
+				os.system('C:\\Users\\Nick\\Desktop\\ffmpeg-20180127-a026a3e-win64-static\\bin\\ffmpeg.exe -i ' + videoOutFileNamePrefix + '.avi -c:v libx264 -pix_fmt yuv420p ' + videoOutFileNamePrefix + '.mp4')
+				# remove uncompressed file
+				try:
+					os.remove(videoOutFileNamePrefix + '.avi')
+				except:
+					print("Failed with:" +  e.strerror)
+					print("Error code:" + str(e.code))
 		if current and videoOutFile != None:
 			delta = (now - prev).microseconds / 1000
 			prev = now
@@ -149,6 +161,8 @@ def record():
 			if lastControllerRecording >= 66.667:
 				controllerOutFile.write(createControllerBinary())
 				lastControllerRecording -= 66.667
+				if westButton:
+					print("clicked")
 
 			img = ImageGrab.grab().resize((960, 540), Image.BILINEAR)
 			img = np.array(img)
