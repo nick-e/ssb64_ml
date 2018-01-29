@@ -10,6 +10,8 @@ import struct
 import os
 
 recording = False
+
+# Super smash bros doesn't need all the buttons on a controller
 rightTrigger = False
 southButton = False
 westButton = False
@@ -21,46 +23,11 @@ leftAnalogX = 0
 leftAnalogY = 0
 rightAnalogX = 0
 rightAnalogY = 0
-
-def listenForHotkey():
-	releaseHotkey = True
-	pressingShiftKey = False
-	pressingCtrlKey = False
-	pressingTKey = False
-	pressingQKey = False
-	global recording
-	while 1:
-		events = get_key()
-		if events:
-			for event in events:
-				if event.state == 1:
-					if event.code == "KEY_T":
-						pressingTKey = True
-					elif event.code == "KEY_LEFTSHIFT":
-						pressingShiftKey = True
-					elif event.code == "KEY_LEFTCTRL":
-						pressingCtrlKey = True
-					elif event.code == "KEY_Q":
-						pressingQKey = True
-				else:
-					if event.code == "KEY_T":
-						pressingTKey = False
-						releaseHotkey = True
-					elif event.code == "KEY_LEFTSHIFT":
-						pressingShiftKey = False
-						releaseHotkey = True
-					elif event.code == "KEY_LEFTCTRL":
-						pressingCtrlKey = False
-						releaseHotkey = True
-					elif event.code == "KEY_Q":
-						pressingQKey = False
-						releaseHotkey = True
-		if releaseHotkey and pressingShiftKey and pressingCtrlKey and pressingQKey:
-			releaseHotkey = False
-			recording = not recording
+recordButton = False
 
 def listenForGamepad():
-	global rightTrigger, southButton, westButton, eastButton, northButton, rightBumper, leftBumper, leftAnalogX, leftAnalogY, rightAnalogX, rightAnalogY
+	global rightTrigger, southButton, westButton, eastButton, northButton, rightBumper, leftBumper, leftAnalogX, leftAnalogY, rightAnalogX, rightAnalogY, recording
+	recordButtonReleased = True
 	while True:
 		events = get_gamepad()
 		for event in events:
@@ -118,6 +85,14 @@ def listenForGamepad():
 					rightAnalogX = round(tmp, 1)
 				else:
 					rightAnalogX = 0.5
+			elif event.code == "BTN_START":
+				if event.state and recordButtonReleased:
+					recordButtonReleased = False
+					recording = not recording
+					recordButton = True
+				else:
+					recordButton = False
+					recordButtonReleased = True
 
 def createControllerBinary():
 	global rightTrigger, southButton, westButton, eastButton, northButton, rightBumper, leftBumper, leftAnalogX, leftAnalogY, rightAnalogX, rightAnalogY
@@ -176,13 +151,8 @@ def record():
 			videoOutFile.write(img)
 
 def main():
-	hotkeyThread = threading.Thread(target = listenForHotkey)
-	hotkeyThread.daemon = True
-
 	gamepadThread = threading.Thread(target = listenForGamepad)
 	gamepadThread.daemon = True
-
-	hotkeyThread.start()
 	gamepadThread.start()
 
 	record()
