@@ -24,6 +24,7 @@ leftAnalogY = 0
 rightAnalogX = 0
 rightAnalogY = 0
 recordButton = False
+recordDir = 'training'
 
 def listenForGamepad():
 	global rightTrigger, southButton, westButton, eastButton, northButton, rightBumper, leftBumper, leftAnalogX, leftAnalogY, rightAnalogX, rightAnalogY, recording
@@ -92,6 +93,10 @@ def listenForGamepad():
 					rightAnalogX = 0.5
 			elif event.code == "BTN_START":
 				if event.state and recordButtonReleased:
+					if not recording and southButton:
+						recordDir = 'testing/'
+					else:
+						recordDir = 'training/'
 					recordButtonReleased = False
 					recording = not recording
 					recordButton = True
@@ -132,9 +137,9 @@ def record():
 			if current:
 				start = now
 				startStr = start.strftime("%Y-%m-%d_%H.%M.%S")
-				videoOutFileNamePrefix = 'data/' + startStr
+				videoOutFileNamePrefix = recordDir + startStr
 				videoOutFile = cv2.VideoWriter(videoOutFileNamePrefix + '.avi', fourcc, 15, (960, 540))
-				controllerOutFile = open('data/' + startStr + '.cont', 'wb')
+				controllerOutFile = open(recordDir + startStr + '.cont', 'wb')
 				prev = now
 				print('Recording started. ' + startStr)
 			else:
