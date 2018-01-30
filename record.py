@@ -24,10 +24,10 @@ leftAnalogY = 0
 rightAnalogX = 0
 rightAnalogY = 0
 recordButton = False
-recordDir = 'training'
+recordDir = 'training/'
 
 def listenForGamepad():
-	global rightTrigger, southButton, westButton, eastButton, northButton, rightBumper, leftBumper, leftAnalogX, leftAnalogY, rightAnalogX, rightAnalogY, recording
+	global recordDir, rightTrigger, southButton, westButton, eastButton, northButton, rightBumper, leftBumper, leftAnalogX, leftAnalogY, rightAnalogX, rightAnalogY, recording
 	recordButtonReleased = True
 	while True:
 		events = get_gamepad()
@@ -93,7 +93,7 @@ def listenForGamepad():
 					rightAnalogX = 0.5
 			elif event.code == "BTN_START":
 				if event.state and recordButtonReleased:
-					if not recording and southButton:
+					if southButton and not recording:
 						recordDir = 'testing/'
 					else:
 						recordDir = 'training/'
@@ -141,7 +141,7 @@ def record():
 				videoOutFile = cv2.VideoWriter(videoOutFileNamePrefix + '.avi', fourcc, 15, (960, 540))
 				controllerOutFile = open(recordDir + startStr + '.cont', 'wb')
 				prev = now
-				print('Recording started. ' + startStr)
+				print('Recording started. ' + recordDir + startStr)
 			else:
 				videoOutFile.release()
 				controllerOutFile.close()
@@ -166,8 +166,6 @@ def record():
 			if lastControllerRecording >= 66.667:
 				controllerOutFile.write(createControllerBinary())
 				lastControllerRecording -= 66.667
-				if westButton:
-					print("clicked")
 
 			img = ImageGrab.grab().resize((960, 540), Image.BILINEAR)
 			img = np.array(img)
