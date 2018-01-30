@@ -181,17 +181,3 @@ def main():
 
 if __name__ == '__main__':
 	main()
-
-#while(True):
-	#img = np.array(ImageGrab.grab())
-	#frame = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-	#cv2.imshow('frame',frame)
-
-	#events = get_key()
-	#for event in events:
-	#	print(event.ev_type, event.code, event.state)
-
-	#if cv2.waitKey(25) & 0xFF == ord('q'):
-	#	break
-
-#cv2.destroyAllWindows()
