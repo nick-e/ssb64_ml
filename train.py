@@ -98,6 +98,7 @@ def main():
 					frame = frame.flatten()
 					videoFrames[i * 1555200:(i + 1) * 1555200] = frame
 
+			controllerFile.close()
 			videoFile.release()
 
 
