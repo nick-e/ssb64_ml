@@ -77,14 +77,15 @@ def main():
 	# that is 960 * 540 * 3 * 10
 	# since it's so huge, I'm not going to put it in the loop where it constantly needs to be reinitialized
 	videoFrames = np.empty(15552000)
-	for filename in os.listdir('data/'):
+	for filename in os.listdir('training/'):
 		if filename.endswith('.mp4'):
 			prefix = filename.replace('.mp4', '')
-			print("training " + filename)
-			videoFile = cv2.VideoCapture('data/' + filename)
-			controllerFile = open('data/' + prefix + '.cont', 'rb')
+			print("training " + prefix)
+			videoFile = cv2.VideoCapture('training/' + filename)
+			controllerFile = open('training/' + prefix + '.cont', 'rb')
 
 			while True:
+				# get a batch of controller input
 				controllerBinaries = controllerFile.read(170)
 				if len(controllerBinaries) != 170:
 					break
@@ -93,10 +94,21 @@ def main():
 					controllerNp = controllerBinaryToNumpy(controllerBinaries[i * 17:(i + 1) * 17])
 					controllerInputs[i * 11:(i + 1) * 11] = controllerNp
 
+				# get a batch of video input
 				for i in range(10):
 					ret, frame = videoFile.read()
 					frame = frame.flatten()
 					videoFrames[i * 1555200:(i + 1) * 1555200] = frame
+
+				# get a batch of expected outputs
+				# the expected output is the next controller input values
+				expected = np.empty(110)
+				expected[:99] = controllerInputs[11:110]
+				tmp = controllerFile.read(17)
+				if len(tmp) != 17:
+					break
+				expected[99:110] = controllerBinaryToNumpy(tmp)
+				controllerFile.seek(-17, 1)
 
 			controllerFile.close()
 			videoFile.release()
