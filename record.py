@@ -129,6 +129,7 @@ def record():
 	start = None
 	prev = None
 	lastControllerRecording = 0
+	framerate = 1000 / 15
 	while True:
 		now = datetime.datetime.now()
 
@@ -163,9 +164,9 @@ def record():
 			prev = now
 			lastControllerRecording += delta
 			print(delta)
-			if lastControllerRecording >= 66.667:
+			if lastControllerRecording >= framerate:
 				controllerOutFile.write(createControllerBinary())
-				lastControllerRecording -= 66.667
+				lastControllerRecording -= framerate
 
 			img = ImageGrab.grab().resize((960, 540), Image.BILINEAR)
 			img = np.array(img)
