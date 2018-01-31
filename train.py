@@ -128,21 +128,21 @@ def getNextTrainingBatch(videoFile, controllerFile, videoBatch, controllerBatch,
 		return False
 	for i in range(10):
 		controllerNp = controllerBinaryToNumpy(controllerBinaries[i * 17:(i + 1) * 17])
-		controllerBatch[i * 11:(i + 1) * 11] = controllerNp
+		controllerBatch[i][:] = controllerNp
 
 	# get a batch of video input
 	for i in range(10):
 		ret, frame = videoFile.read()
 		frame = frame.flatten()
-		videoBatch[i * 1555200:(i + 1) * 1555200] = frame
+		videoBatch[i][:] = frame
 
 	# get a batch of expected outputs
-	expectedBatch[:99] = controllerBatch[11:110]
-	tmp = controllerFile.read(17)
-	if len(tmp) != 17:
-		return False
-	expectedBatch[99:110] = controllerBinaryToNumpy(tmp)
-	controllerFile.seek(-17, 1)
+	expectedBatch[:9] = controllerBatch[1:]
+	#tmp = controllerFile.read(17)
+	#if len(tmp) != 17:
+	#	return False
+	#expectedBatch[9][:] = controllerBinaryToNumpy(tmp)
+	#controllerFile.seek(-17, 1)
 
 	return True
 
@@ -159,9 +159,9 @@ def main():
 	print('training cnn')
 	batchSize = 10
 	numEpochs = 2
-	videoBatch = np.empty(imageWidth * imageHeight * numInputChannels * batchSize)
-	controllerBatch = np.empty(numControllerInputs * batchSize)
-	expectedBatch = np.empty(numOutputs * batchSize)
+	videoBatch = np.empty([batchSize, imageWidth * imageHeight * numInputChannels])
+	controllerBatch = np.empty([batchSize, numControllerInputs])
+	expectedBatch = np.empty([batchSize, numOutputs])
 
 	# This will store the expected values, a.k.a. what buttons should be pressed on the controller
 	expectedPlaceholder = tf.placeholder(tf.float32, shape = [None, numOutputs], name = 'y')
@@ -174,7 +174,7 @@ def main():
 	optimizer = tf.train.AdamOptimizer(learning_rate = 1e-4).minimize(loss)
 
 	session = tf.Session()
-	session.run(tf.global_variables_initializer())
+	#session.run(tf.global_variables_initializer())
 
 	for filename in os.listdir('training/'):
 		if filename.endswith('.mp4'):
@@ -182,10 +182,21 @@ def main():
 			print('\t' + prefix)
 			videoFile = cv2.VideoCapture('training/' + filename)
 			controllerFile = open('training/' + prefix + '.cont', 'rb')
+			totalFrames = videoFile.get(cv2.CAP_PROP_FRAME_COUNT)
+			totalFramesStr = str(totalFrames)
+			currentFrame = 0
+			print('\t\t0 / ' + str(totalFrames))
 
 			while getNextTrainingBatch(videoFile, controllerFile, videoBatch, controllerBatch, expectedBatch):
-				feedDict = {x: videoBatch, y: controllerBatch}
-				session.run(optimizer, feed_dict = feedDict)
+				#session.run(optimizer, feed_dict = {videoInputPlaceholder: videoBatch, expectedPlaceholder: controllerBatch})
+
+				backspaces = '\b\b\b\b';
+				for i in range(len(totalFramesStr)):
+					backspaces += '\b'
+				for i in range(len(str(currentFrame))):
+					backspaces += '\b'
+				currentFrame += 10
+				print('\r' + str(currentFrame) + ' / ' + totalFramesStr)
 
 			controllerFile.close()
 			videoFile.release()
