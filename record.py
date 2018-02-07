@@ -129,17 +129,23 @@ def record():
 	start = None
 	prev = None
 	lastControllerRecording = 0
-	framerate = 1000 / 15
+	framesPerSecond = 15
+	microsecondsPerFrame = 1000000 / framesPerSecond
+	count = 0
+	videoWidth = 256
+	videoHeight = 144
+	print('Video scaled down to ' + str(videoWidth) + 'x' + str(videoHeight))
 	while True:
 		now = datetime.datetime.now()
 
 		if current != recording:
 			current = recording
 			if current:
+				count = 0
 				start = now
 				startStr = start.strftime("%Y-%m-%d_%H.%M.%S")
 				videoOutFileNamePrefix = recordDir + startStr
-				videoOutFile = cv2.VideoWriter(videoOutFileNamePrefix + '.avi', fourcc, 15, (960, 540))
+				videoOutFile = cv2.VideoWriter(videoOutFileNamePrefix + '.avi', fourcc, 15, (videoWidth, videoHeight))
 				controllerOutFile = open(recordDir + startStr + '.cont', 'wb')
 				prev = now
 				print('Recording started. ' + recordDir + startStr)
@@ -149,29 +155,29 @@ def record():
 				videoOutFile = None
 				dif = now - start
 				print('\tRecording stopped. ' + str(dif.seconds) + ' seconds.')
-
+				print("\tSaved " + str(count) + " sets of controller input.")
+				print("\t\tAt " + str(framesPerSecond) + " frames a second, that is %.1f" % (count / framesPerSecond) + " seconds of recorded controller input.")
+				print("\tCompressing video file...")
 				# compress the .avi file
-				print('C:\\Users\\Nick\\Desktop\\ffmpeg-20180127-a026a3e-win64-static\\bin\\ffmpeg.exe -i ' + videoOutFileNamePrefix + '.avi -c:v libx264 -pix_fmt yuv420p ' + videoOutFileNamePrefix + '.mp4')
-				os.system('C:\\Users\\Nick\\Desktop\\ffmpeg-20180127-a026a3e-win64-static\\bin\\ffmpeg.exe -i ' + videoOutFileNamePrefix + '.avi -c:v libx264 -pix_fmt yuv420p ' + videoOutFileNamePrefix + '.mp4')
+				os.system('C:\\Users\\Nick\\Desktop\\ffmpeg-20180127-a026a3e-win64-static\\bin\\ffmpeg.exe -loglevel panic -i ' + videoOutFileNamePrefix + '.avi -c:v libx264 -pix_fmt yuv420p ' + videoOutFileNamePrefix + '.mp4')
 				# remove uncompressed file
 				try:
 					os.remove(videoOutFileNamePrefix + '.avi')
 				except:
 					print("Failed with:" +  e.strerror)
 					print("Error code:" + str(e.code))
+				print("\tFinished.\n")
 		if current and videoOutFile != None:
-			delta = (now - prev).microseconds / 1000
+			delta = (now - prev).microseconds
 			prev = now
 			lastControllerRecording += delta
-			print(delta)
-			if lastControllerRecording >= framerate:
+			while lastControllerRecording >= microsecondsPerFrame:
 				controllerOutFile.write(createControllerBinary())
-				lastControllerRecording -= framerate
-
-			img = ImageGrab.grab().resize((960, 540), Image.BILINEAR)
-			img = np.array(img)
-
-			videoOutFile.write(img)
+				lastControllerRecording -= microsecondsPerFrame
+				count += 1
+				img = ImageGrab.grab().resize((videoWidth, videoHeight), Image.BILINEAR)
+				img = np.array(img)
+				videoOutFile.write(img)
 
 def main():
 	gamepadThread = threading.Thread(target = listenForGamepad)
