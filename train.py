@@ -47,7 +47,7 @@ def createConvLayer(input, numInputChannels, filterWidth, filterHeight, numFilte
 	layer += biases
 
 	# reduce the size of the convolution layer to 1/4 its original size by using pooling
-	layer = tf.nn.max_pool(value = layer, ksize = [1, 2, 2, 1], strides = [1, 2, 2, 1], padding = 'SAME')
+	layer = tf.nn.max_pool(value = layer, ksize = [1, 4, 4, 1], strides = [1, 4, 4, 1], padding = 'SAME')
 
 	# remove any negative numbers generated in this layer by setting those values to 0
 	layer = tf.nn.relu(layer)
@@ -79,11 +79,11 @@ def createFullConLayer(input, numInputs, numOutputs, useRelu = True):
 
 	return layer
 
-def createCNN(imageWidth, imageHeight, numInputChannels, numOutputs):
+def createCNN(imageWidth, imageHeight, numInputChannels, numControllerInputs, numOutputs):
 	imgDimFlat = imageWidth * imageHeight * numInputChannels
 
 	# This will store the video input
-	videoInputPlaceholder = tf.placeholder(tf.float32, shape = [None, imgDimFlat], name = 'x')
+	videoInputPlaceholder = tf.placeholder(tf.float32, shape = [None, imgDimFlat])
 
 	# Convolutional layers require a 4D shape ([numImages, imageWidth, imageHeight, numInputChannels])
 	videoInputPlaceholderConv = tf.reshape(videoInputPlaceholder, [-1, imageWidth, imageHeight, numInputChannels])
@@ -91,22 +91,26 @@ def createCNN(imageWidth, imageHeight, numInputChannels, numOutputs):
 	convLayer1, convLayer1Weights = createConvLayer(
 		input = videoInputPlaceholderConv,
 		numInputChannels = numInputChannels,
-		filterWidth = 192, # arbitrary
-		filterHeight = 108, # arbitrary
+		filterWidth = 32, # arbitrary
+		filterHeight = 18, # arbitrary
 		numFilters = 32) # arbitrary
 
 	convLayer2, convLayer2Weights = createConvLayer(
 		input = convLayer1,
 		numInputChannels = 32, # numFilters in convLayer1
-		filterWidth = 192, # arbitrary
-		filterHeight = 108, # arbitrary
+		filterWidth = 32, # arbitrary
+		filterHeight = 18, # arbitrary
 		numFilters = 64) # arbitrary
 
 	convLayer2Flat, numConvLayer2Features = flattenConvLayer(convLayer2)
 
+	controllerInputPlaceholder = tf.placeholder(tf.float32, shape = [None, numControllerInputs])
+
+	concatLayer = tf.concat([convLayer2Flat, controllerInputPlaceholder], 1)
+
 	fullConLayer1 = createFullConLayer(
-		input = convLayer2Flat,
-		numInputs = numConvLayer2Features,
+		input = concatLayer,
+		numInputs = numConvLayer2Features + numControllerInputs,
 		numOutputs = 512) # arbitrary
 
 	# final/output layer
@@ -119,41 +123,46 @@ def createCNN(imageWidth, imageHeight, numInputChannels, numOutputs):
 		useRelu = False)
 	fullConLayer2 = tf.sigmoid(fullConLayer2)
 
-	return fullConLayer2, videoInputPlaceholder
+	buttonOutputs, analogOutputs = tf.split(fullConLayer2, [7, 4], 1)
+	buttonOutputs = tf.round(buttonOutputs)
 
-def getNextTrainingBatch(videoFile, controllerFile, videoBatch, controllerBatch, expectedBatch):
+	return fullConLayer2, videoInputPlaceholder, controllerInputPlaceholder
+
+def getNextTrainingBatch(batchSize, videoFile, controllerFile, videoBatch, controllerBatch, expectedBatch):
 	# get a batch of controller input
-	controllerBinaries = controllerFile.read(170)
-	if len(controllerBinaries) != 170:
+	controllerBinaries = controllerFile.read(17 * batchSize)
+	if len(controllerBinaries) != 17 * batchSize:
 		return False
-	for i in range(10):
+	for i in range(batchSize):
 		controllerNp = controllerBinaryToNumpy(controllerBinaries[i * 17:(i + 1) * 17])
 		controllerBatch[i][:] = controllerNp
 
 	# get a batch of video input
-	for i in range(10):
+	for i in range(batchSize):
 		ret, frame = videoFile.read()
 		frame = frame.flatten()
 		videoBatch[i][:] = frame
 
 	# get a batch of expected outputs
-	expectedBatch[:9] = controllerBatch[1:]
-	#tmp = controllerFile.read(17)
-	#if len(tmp) != 17:
-	#	return False
-	#expectedBatch[9][:] = controllerBinaryToNumpy(tmp)
-	#controllerFile.seek(-17, 1)
+	expectedBatch[:batchSize - 1] = controllerBatch[1:]
+	tmp = controllerFile.read(17)
+	if len(tmp) != 17:
+		return False
+	expectedBatch[batchSize - 1][:] = controllerBinaryToNumpy(tmp)
+	controllerFile.seek(-17, 1)
 
 	return True
 
 def main():
-	imageWidth = 960
-	imageHeight = 540
+	os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+	imageWidth = 256
+	imageHeight = 144
 	numInputChannels = 3
 	numControllerInputs = 11
 	numOutputs = numControllerInputs
 	print('creating cnn')
-	cnnModel, videoInputPlaceholder = createCNN(imageWidth, imageHeight, numInputChannels, numControllerInputs)
+	cnnModel, videoInputPlaceholder, controllerInputPlaceholder = createCNN(imageWidth, imageHeight, numInputChannels, numControllerInputs, numControllerInputs)
 
 	# training
 	print('training cnn')
@@ -164,7 +173,7 @@ def main():
 	expectedBatch = np.empty([batchSize, numOutputs])
 
 	# This will store the expected values, a.k.a. what buttons should be pressed on the controller
-	expectedPlaceholder = tf.placeholder(tf.float32, shape = [None, numOutputs], name = 'y')
+	expectedPlaceholder = tf.placeholder(tf.float32, shape = [None, numOutputs])
 
 	lossFunc = tf.nn.sigmoid_cross_entropy_with_logits(
 		logits = cnnModel,
@@ -173,8 +182,12 @@ def main():
 	loss = tf.reduce_mean(lossFunc)
 	optimizer = tf.train.AdamOptimizer(learning_rate = 1e-4).minimize(loss)
 
-	session = tf.Session()
-	#session.run(tf.global_variables_initializer())
+	#config = tf.ConfigProto(device_count = {'GPU': 0})
+	config = tf.ConfigProto()
+	config.gpu_options.allow_growth = True
+	#config.gpu_options.per_process_gpu_memory_fraction = 0.7
+	session = tf.Session(config = config)
+	session.run(tf.global_variables_initializer())
 
 	for filename in os.listdir('training/'):
 		if filename.endswith('.mp4'):
@@ -185,18 +198,12 @@ def main():
 			totalFrames = videoFile.get(cv2.CAP_PROP_FRAME_COUNT)
 			totalFramesStr = str(totalFrames)
 			currentFrame = 0
-			print('\t\t0 / ' + str(totalFrames))
 
-			while getNextTrainingBatch(videoFile, controllerFile, videoBatch, controllerBatch, expectedBatch):
-				#session.run(optimizer, feed_dict = {videoInputPlaceholder: videoBatch, expectedPlaceholder: controllerBatch})
+			while getNextTrainingBatch(batchSize, videoFile, controllerFile, videoBatch, controllerBatch, expectedBatch):
+				session.run(optimizer, feed_dict = {videoInputPlaceholder: videoBatch, controllerInputPlaceholder: controllerBatch, expectedPlaceholder: expectedBatch})
 
-				backspaces = '\b\b\b\b';
-				for i in range(len(totalFramesStr)):
-					backspaces += '\b'
-				for i in range(len(str(currentFrame))):
-					backspaces += '\b'
-				currentFrame += 10
-				print('\r' + str(currentFrame) + ' / ' + totalFramesStr)
+				currentFrame += batchSize
+				print('\t' + str(currentFrame) + ' / ' + totalFramesStr)
 
 			controllerFile.close()
 			videoFile.release()
