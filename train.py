@@ -121,21 +121,28 @@ def createCNN(imageWidth, imageHeight, numInputChannels, numControllerInputs, nu
 		numInputs = 512, # numOutputs in fullConLayer1
 		numOutputs = numOutputs, # number of possible controller inputs
 		useRelu = False)
-	fullConLayer2 = tf.sigmoid(fullConLayer2)
 
-	buttonOutputs, analogOutputs = tf.split(fullConLayer2, [7, 4], 1)
-	buttonOutputs = tf.round(buttonOutputs)
+	controllerButtonOutputs, controllerAnalogOutputs = tf.split(fullConLayer2, [7, 4], 1)
+	controllerButtonOutputs = tf.sigmoid(controllerButtonOutputs)
+	expectedControllerButtonOutputsPlaceholder = tf.placeholder(tf.float32, shape = [None, 7])
+	expectedControllerAnalogOutputsPlaceholder = tf.placeholder(tf.float32, shape = [None, 4])
+	controllerAnalogLoss = tf.reduce_mean(tf.square(tf.subtract(controllerAnalogOutputs, expectedControllerAnalogOutputsPlaceholder)))
+	controllerButtonLoss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
+		logits = controllerButtonOutputs,
+		labels = expectedControllerButtonOutputsPlaceholder))
+	totalLoss = tf.add(controllerAnalogLoss, controllerButtonLoss)
+	optimizer = tf.train.AdamOptimizer(learning_rate = 1e-4).minimize(totalLoss)
 
-	return fullConLayer2, videoInputPlaceholder, controllerInputPlaceholder
+	return videoInputPlaceholder, controllerInputPlaceholder, controllerButtonOutputs, controllerAnalogOutputs, expectedControllerButtonOutputsPlaceholder, expectedControllerAnalogOutputsPlaceholder, optimizer, totalLoss
 
-def getNextTrainingBatch(batchSize, videoFile, controllerFile, videoBatch, controllerBatch, expectedBatch):
+def getNextTrainingBatch(batchSize, videoFile, controllerFile, videoBatch, controllerInputBatch, expectedControllerButtonOutputBatch, expectedControllerAnalogOutputBatch):
 	# get a batch of controller input
 	controllerBinaries = controllerFile.read(17 * batchSize)
 	if len(controllerBinaries) != 17 * batchSize:
 		return False
 	for i in range(batchSize):
 		controllerNp = controllerBinaryToNumpy(controllerBinaries[i * 17:(i + 1) * 17])
-		controllerBatch[i][:] = controllerNp
+		controllerInputBatch[i][:] = controllerNp
 
 	# get a batch of video input
 	for i in range(batchSize):
@@ -144,13 +151,15 @@ def getNextTrainingBatch(batchSize, videoFile, controllerFile, videoBatch, contr
 		videoBatch[i][:] = frame
 
 	# get a batch of expected outputs
-	expectedBatch[:batchSize - 1] = controllerBatch[1:]
+	expectedControllerButtonOutputBatch[:batchSize - 1] = controllerInputBatch[1:, :7]
+	expectedControllerAnalogOutputBatch[:batchSize - 1] = controllerInputBatch[1:, 7:11]
 	tmp = controllerFile.read(17)
 	if len(tmp) != 17:
 		return False
-	expectedBatch[batchSize - 1][:] = controllerBinaryToNumpy(tmp)
+	tmp = controllerBinaryToNumpy(tmp)
+	expectedControllerButtonOutputBatch[batchSize - 1] = tmp[:7]
+	expectedControllerAnalogOutputBatch[batchSize - 1] = tmp[7:11]
 	controllerFile.seek(-17, 1)
-
 	return True
 
 def main():
@@ -162,25 +171,16 @@ def main():
 	numControllerInputs = 11
 	numOutputs = numControllerInputs
 	print('creating cnn')
-	cnnModel, videoInputPlaceholder, controllerInputPlaceholder = createCNN(imageWidth, imageHeight, numInputChannels, numControllerInputs, numControllerInputs)
+	videoInputPlaceholder, controllerInputPlaceholder, controllerButtonOutput, controllerAnalogOutput, expectedControllerButtonOutputPlaceholder, expectedControllerAnalogOutputPlaceholder, optimizer, loss = createCNN(imageWidth, imageHeight, numInputChannels, numControllerInputs, numControllerInputs)
 
 	# training
 	print('training cnn')
 	batchSize = 10
 	numEpochs = 2
 	videoBatch = np.empty([batchSize, imageWidth * imageHeight * numInputChannels])
-	controllerBatch = np.empty([batchSize, numControllerInputs])
-	expectedBatch = np.empty([batchSize, numOutputs])
-
-	# This will store the expected values, a.k.a. what buttons should be pressed on the controller
-	expectedPlaceholder = tf.placeholder(tf.float32, shape = [None, numOutputs])
-
-	lossFunc = tf.nn.sigmoid_cross_entropy_with_logits(
-		logits = cnnModel,
-		labels = expectedPlaceholder)
-	# since the training is done in batches, take the average loss of those batches to correct the neural network
-	loss = tf.reduce_mean(lossFunc)
-	optimizer = tf.train.AdamOptimizer(learning_rate = 1e-4).minimize(loss)
+	controllerInputBatch = np.empty([batchSize, numControllerInputs])
+	expectedControllerButtonOutputBatch = np.empty([batchSize, 7])
+	expectedControllerAnalogOutputBatch = np.empty([batchSize, 4])
 
 	#config = tf.ConfigProto(device_count = {'GPU': 0})
 	config = tf.ConfigProto()
@@ -195,15 +195,31 @@ def main():
 			print('\t' + prefix)
 			videoFile = cv2.VideoCapture('training/' + filename)
 			controllerFile = open('training/' + prefix + '.cont', 'rb')
-			totalFrames = videoFile.get(cv2.CAP_PROP_FRAME_COUNT)
+			totalFrames = int(videoFile.get(cv2.CAP_PROP_FRAME_COUNT))
 			totalFramesStr = str(totalFrames)
 			currentFrame = 0
 
-			while getNextTrainingBatch(batchSize, videoFile, controllerFile, videoBatch, controllerBatch, expectedBatch):
-				session.run(optimizer, feed_dict = {videoInputPlaceholder: videoBatch, controllerInputPlaceholder: controllerBatch, expectedPlaceholder: expectedBatch})
+			while getNextTrainingBatch(
+				batchSize,
+				videoFile,
+				controllerFile,
+				videoBatch,
+				controllerInputBatch,
+				expectedControllerButtonOutputBatch,
+				expectedControllerAnalogOutputBatch
+			):
+				_, v = session.run(
+					[optimizer, loss],
+					feed_dict = {
+						videoInputPlaceholder: videoBatch,
+						controllerInputPlaceholder: controllerInputBatch,
+						expectedControllerButtonOutputPlaceholder: expectedControllerButtonOutputBatch,
+						expectedControllerAnalogOutputPlaceholder: expectedControllerAnalogOutputBatch
+					}
+				)
 
 				currentFrame += batchSize
-				print('\t' + str(currentFrame) + ' / ' + totalFramesStr)
+				print('\t\t' + str(currentFrame) + ' / ' + totalFramesStr + ", loss = " + str(v))
 
 			controllerFile.close()
 			videoFile.release()
