@@ -176,7 +176,7 @@ def main():
 	# training
 	print('training cnn')
 	batchSize = 10
-	numEpochs = 2
+	numEpochs = 10
 	videoBatch = np.empty([batchSize, imageWidth * imageHeight * numInputChannels])
 	controllerInputBatch = np.empty([batchSize, numControllerInputs])
 	expectedControllerButtonOutputBatch = np.empty([batchSize, 7])
@@ -189,42 +189,48 @@ def main():
 	session = tf.Session(config = config)
 	session.run(tf.global_variables_initializer())
 
-	for filename in os.listdir('training/'):
-		if filename.endswith('.mp4'):
-			prefix = filename.replace('.mp4', '')
-			print('\t' + prefix)
-			videoFile = cv2.VideoCapture('training/' + filename)
-			controllerFile = open('training/' + prefix + '.cont', 'rb')
-			totalFrames = int(videoFile.get(cv2.CAP_PROP_FRAME_COUNT))
-			totalFramesStr = str(totalFrames)
-			currentFrame = 0
+	o = open('loss.csv', 'w')
+	c = 0
 
-			while getNextTrainingBatch(
-				batchSize,
-				videoFile,
-				controllerFile,
-				videoBatch,
-				controllerInputBatch,
-				expectedControllerButtonOutputBatch,
-				expectedControllerAnalogOutputBatch
-			):
-				_, v = session.run(
-					[optimizer, loss],
-					feed_dict = {
-						videoInputPlaceholder: videoBatch,
-						controllerInputPlaceholder: controllerInputBatch,
-						expectedControllerButtonOutputPlaceholder: expectedControllerButtonOutputBatch,
-						expectedControllerAnalogOutputPlaceholder: expectedControllerAnalogOutputBatch
-					}
-				)
+	for i in range(numEpochs):
+		for filename in os.listdir('training/'):
+			if filename.endswith('.mp4'):
+				prefix = filename.replace('.mp4', '')
+				print('\t' + prefix)
+				videoFile = cv2.VideoCapture('training/' + filename)
+				controllerFile = open('training/' + prefix + '.cont', 'rb')
+				totalFrames = int(videoFile.get(cv2.CAP_PROP_FRAME_COUNT))
+				totalFramesStr = str(totalFrames)
+				currentFrame = 0
 
-				currentFrame += batchSize
-				print('\t\t' + str(currentFrame) + ' / ' + totalFramesStr + ", loss = " + str(v))
+				while getNextTrainingBatch(
+					batchSize,
+					videoFile,
+					controllerFile,
+					videoBatch,
+					controllerInputBatch,
+					expectedControllerButtonOutputBatch,
+					expectedControllerAnalogOutputBatch
+				):
+					_, v = session.run(
+						[optimizer, loss],
+						feed_dict = {
+							videoInputPlaceholder: videoBatch,
+							controllerInputPlaceholder: controllerInputBatch,
+							expectedControllerButtonOutputPlaceholder: expectedControllerButtonOutputBatch,
+							expectedControllerAnalogOutputPlaceholder: expectedControllerAnalogOutputBatch
+						}
+					)
+					o.write(str(c) + ',' + str(v) + '\n')
+					c += 1
+					currentFrame += batchSize
+					print('\t\t' + str(currentFrame) + ' / ' + totalFramesStr + ", loss = " + str(v))
 
-			controllerFile.close()
-			videoFile.release()
+				controllerFile.close()
+				videoFile.release()
 
 	session.close()
+	o.close()
 
 if __name__ == '__main__':
 	main()
