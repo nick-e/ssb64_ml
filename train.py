@@ -4,7 +4,10 @@ import os
 import tensorflow as tf
 import struct
 
-# converts the binary information from a ".conf" file to a numpy array of controller inputs
+'''
+Converts the binary information from a ".conf" file to a numpy array o
+controller inputs
+'''
 def controllerBinaryToNumpy(binary):
 	controllerNp = np.empty(11)
 	controllerNp[0] = 1 if (binary[0] & 0x01) else 0
@@ -20,9 +23,12 @@ def controllerBinaryToNumpy(binary):
 	controllerNp[10] = struct.unpack('f', binary[13:17])[0]
 	return controllerNp
 
-# creates a tensor meant to contain weights, randomly generates the initial values based on a normal curve with a standard deviation of 0.05
+'''
+Creates a tensor meant to contain weights, randomly generates the initial values
+based on a normal curve with a standard deviation of 0.05
+'''
 def createWeights(shape):
-	return tf.Variable(tf.truncated_normal(shape, stddev = 0.05))
+	return tf.Variable(tf.truncated_normal(shape, stddev=0.05))
 
 # creates a 1D tensor meant to contain biases, the values are initialized to 0.05
 def createBiases(length):
@@ -35,12 +41,12 @@ def createConvLayer(input, numInputChannels, filterWidth, filterHeight, numFilte
 	shape = [filterWidth, filterHeight, numInputChannels, numFilters]
 
 	# create weights, a.k.a. the filters with the given shape
-	weights = createWeights(shape = shape)
+	weights = createWeights(shape=shape)
 
 	# create biases, 1 for each filter
-	biases = createBiases(length = numFilters)
+	biases = createBiases(length=numFilters)
 
-	layer = tf.nn.conv2d(input = input, filter = weights, strides = [1, 1, 1, 1], padding = 'SAME')
+	layer = tf.nn.conv2d(input=input, filter = weights, strides = [1, 1, 1, 1], padding = 'SAME')
 
 	# add the biases to the results of the convolution
 	# each filter will have a bias added to it
