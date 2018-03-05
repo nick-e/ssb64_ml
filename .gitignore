@@ -1,5 +1,5 @@
 *.docx
 *.pdf
-training/
-testing/
+data/
+build/
 *.ppk
