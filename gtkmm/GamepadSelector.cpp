@@ -23,7 +23,15 @@ void SSBML::GamepadSelector::refresh()
     std::string deviceFileName = gamepadDeviceFileNames[i];
     Gtk::TreeModel::Row row = *(refTreeModel->append());
     row[modelColumns.deviceFileName] = deviceFileName;
-    row[modelColumns.deviceName] = "blank";
+    int fd = open(("/dev/input/" + deviceFileName).c_str(), O_RDONLY);
+    if (fd < 0)
+    {
+      perror("SBML::GamepadSelector::refresh(): open()");
+      continue;
+    }
+    char name[1024];
+    ioctl(fd, EVIOCGNAME(sizeof(name)), name);
+    row[modelColumns.deviceName] = name;
   }
 }
 

@@ -17,7 +17,8 @@ unsigned long SSBML::Gamepad::get_gamepad_device_file_names(std::string *dest)
   while ((dp = readdir(dfd)) != NULL)
   {
     std::string fileName(dp->d_name);
-    if (fileName.find("event") == 0)
+    if (fileName.find("event") == 0 &&
+      !access(("/dev/input/" + fileName).c_str(), R_OK))
     {
       dest[count] = fileName;
       count++;

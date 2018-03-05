@@ -13,6 +13,9 @@
 #include <X11/Xlib.h>
 #include <fstream>
 #include <string>
+#include <sys/ioctl.h>
+#include <linux/input.h>
+#include <fcntl.h>
 
 #include "../core/Gamepad.h"
 
