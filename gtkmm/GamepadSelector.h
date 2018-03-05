@@ -35,6 +35,7 @@ namespace SSBML
       };
 
       Gtk::Button selectButton;
+      Gtk::TreeView treeView;
 
       GamepadSelector();
       std::string get_selected_gamepad();
@@ -42,7 +43,6 @@ namespace SSBML
     protected:
 
       Gtk::Box box;
-      Gtk::TreeView treeView;
       Gtk::ButtonBox buttonBox;
       Gtk::Button refreshButton;
       ModelColumns modelColumns;

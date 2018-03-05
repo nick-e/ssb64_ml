@@ -33,6 +33,7 @@ namespace SSBML
       };
 
       Gtk::Button selectButton;
+      Gtk::TreeView treeView;
 
       VideoInputSelector();
       ~VideoInputSelector();
@@ -41,7 +42,6 @@ namespace SSBML
     protected:
 
       Gtk::Box box;
-      Gtk::TreeView treeView;
       Gtk::ButtonBox buttonBox;
       Gtk::Button refreshButton;
       ModelColumns modelColumns;

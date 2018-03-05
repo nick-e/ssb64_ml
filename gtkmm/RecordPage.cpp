@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-void SSBML::App::RecordPage::on_videoInputSelector_select_button_clicked()
+void SSBML::App::RecordPage::get_selected_window()
 {
   display = videoInputSelector->get_selected_window(&recordWindow);
   vis_refTreeModel->clear();
@@ -27,9 +27,20 @@ void SSBML::App::RecordPage::on_videoInputSelector_select_button_clicked()
   videoInputSelector->close();
 }
 
+void SSBML::App::RecordPage::on_videoInputSelector_select_button_clicked()
+{
+  get_selected_window();
+}
+
+void SSBML::App::RecordPage::on_videoInputSelector_row_activated(
+  const Gtk::TreeModel::Path& path, Gtk::TreeViewColumn* column)
+{
+  get_selected_window();
+}
+
 void SSBML::App::RecordPage::on_gamepadSelector_select_button_clicked()
 {
-  gamepadSelector->close();
+  get_selected_gamepad();
 }
 
 void SSBML::App::RecordPage::on_change_window_button_clicked()
@@ -37,8 +48,21 @@ void SSBML::App::RecordPage::on_change_window_button_clicked()
   videoInputSelector = new SSBML::VideoInputSelector();
   videoInputSelector->selectButton.signal_clicked().connect(sigc::mem_fun(
     *this, &RecordPage::on_videoInputSelector_select_button_clicked));
+  videoInputSelector->treeView.signal_row_activated().connect(sigc::mem_fun(
+    *this, &RecordPage::on_videoInputSelector_row_activated));
   videoInputSelector->set_transient_for((Gtk::Window&)app);
   videoInputSelector->show();
+}
+
+void SSBML::App::RecordPage::get_selected_gamepad()
+{
+  gamepadSelector->close();
+}
+
+void SSBML::App::RecordPage::on_gamepadSelector_row_activated(
+  const Gtk::TreeModel::Path& path, Gtk::TreeViewColumn* column)
+{
+  get_selected_gamepad();
 }
 
 void SSBML::App::RecordPage::on_change_gamepad_button_clicked()
@@ -46,6 +70,8 @@ void SSBML::App::RecordPage::on_change_gamepad_button_clicked()
   gamepadSelector = new SSBML::GamepadSelector();
   gamepadSelector->selectButton.signal_clicked().connect(sigc::mem_fun(
     *this, &RecordPage::on_gamepadSelector_select_button_clicked));
+  gamepadSelector->treeView.signal_row_activated().connect(sigc::mem_fun(
+    *this, &RecordPage::on_gamepadSelector_row_activated));
   gamepadSelector->set_transient_for((Gtk::Window&)app);
   gamepadSelector->show();
 }

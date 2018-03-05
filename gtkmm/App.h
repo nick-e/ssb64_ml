@@ -51,10 +51,16 @@ namespace SSBML
       GamepadSelector *gamepadSelector;
       int gs_Fd;
 
+      void get_selected_window();
+      void get_selected_gamepad();
       void on_change_window_button_clicked();
       void on_change_gamepad_button_clicked();
       void on_videoInputSelector_select_button_clicked();
+      void on_videoInputSelector_row_activated(
+        const Gtk::TreeModel::Path& path, Gtk::TreeViewColumn* column);
       void on_gamepadSelector_select_button_clicked();
+      void on_gamepadSelector_row_activated(const Gtk::TreeModel::Path& path,
+        Gtk::TreeViewColumn* column);
     };
 
     Gtk::Notebook notebook;
