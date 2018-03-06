@@ -44,12 +44,13 @@ namespace SSBML
     };
 
     std::atomic<bool> A, B, X, Y, RB, LB, select, start, xbox, ltoggle, rtoggle, quit;
-    std::atomic<int> RT, LT, dpadY, dpadX, lanalogX, lanalogY, ranalogX, ranalogY;
+    std::atomic<int16_t> RT, LT, dpadY, dpadX, lanalogX, lanalogY, ranalogX, ranalogY;
 
     Gamepad(std::string deviceFileName);
     int init();
     int end();
     int get_device_file_fd();
+    void gamepad_binary(char *bin);
 
     static unsigned long get_all_connected_gamepad_device_file_names(std::string *dest);
     static std::string get_device_name(std::string deviceFileName);

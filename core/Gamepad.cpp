@@ -1,5 +1,26 @@
 #include "Gamepad.h"
 
+// bin must be at least 17 bytes
+void SSBML::Gamepad::gamepad_binary(char *bin)
+{
+  bin[0] = A;
+  bin[0] |= (B << 1);
+  bin[0] |= (X << 2);
+  bin[0] |= (Y << 3);
+  bin[0] |= (RB << 4);
+  bin[0] |= (LB << 5);
+  bin[0] |= (rtoggle << 6);
+  bin[0] |= (ltoggle << 7);
+  ((int16_t*)(bin + 1))[0] = ranalogX;
+  ((int16_t*)(bin + 1))[1] = ranalogY;
+  ((int16_t*)(bin + 1))[2] = lanalogX;
+  ((int16_t*)(bin + 1))[3] = lanalogY;
+  ((int16_t*)(bin + 1))[4] = RT;
+  ((int16_t*)(bin + 1))[5] = LT;
+  ((int16_t*)(bin + 1))[6] = dpadX;
+  ((int16_t*)(bin + 1))[7] = dpadY;
+}
+
 int SSBML::Gamepad::get_device_file_fd()
 {
   return deviceFileFd;
@@ -51,28 +72,28 @@ static void read_evdev(SSBML::Gamepad *gamepad)
       gamepad->xbox = e.value;
       break;
     case (int)SSBML::Gamepad::EventCode::RT:
-      gamepad->RT = e.value;
+      gamepad->RT = (int16_t)e.value;
       break;
     case (int)SSBML::Gamepad::EventCode::LT:
-      gamepad->LT = e.value;
+      gamepad->LT = (int16_t)e.value;
       break;
     case (int)SSBML::Gamepad::EventCode::DPadY:
-      gamepad->dpadY = e.value;
+      gamepad->dpadY = (int16_t)e.value;
       break;
     case (int)SSBML::Gamepad::EventCode::DPadX:
-      gamepad->dpadX = e.value;
+      gamepad->dpadX = (int16_t)e.value;
       break;
     case (int)SSBML::Gamepad::EventCode::LAnalogX:
-      gamepad->lanalogX = e.value;
+      gamepad->lanalogX = (int16_t)e.value;
       break;
     case (int)SSBML::Gamepad::EventCode::LAnalogY:
-      gamepad->lanalogY = e.value;
+      gamepad->lanalogY = (int16_t)e.value;
       break;
     case (int)SSBML::Gamepad::EventCode::RAnalogX:
-      gamepad->ranalogX = e.value;
+      gamepad->ranalogX = (int16_t)e.value;
       break;
     case (int)SSBML::Gamepad::EventCode::RAnalogY:
-      gamepad->ranalogY = e.value;
+      gamepad->ranalogY = (int16_t)e.value;
       break;
     case (int)SSBML::Gamepad::EventCode::LToggle:
       gamepad->ltoggle = e.value;
