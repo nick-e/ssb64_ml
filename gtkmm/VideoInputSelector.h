@@ -47,6 +47,7 @@ namespace SSBML
       ModelColumns modelColumns;
       Glib::RefPtr<Gtk::ListStore> refTreeModel;
       Gtk::ScrolledWindow scrolledWindow;
+
       Display *display;
       ::Window *windows;
       unsigned long numWindows;

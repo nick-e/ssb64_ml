@@ -26,23 +26,11 @@ void SSBML::VideoInputSelector::refresh()
   {
     ::Window window = windows[i];
     Gtk::TreeModel::Row row = *(refTreeModel->append());
-    char *windowTitle;
     uint32_t pid = VideoInput::get_window_pid(display, window);
+    row[modelColumns.windowTitle] = VideoInput::get_window_title(display, window);
+    row[modelColumns.processName] = VideoInput::get_process_name(pid);
     row[modelColumns.pid] = std::to_string(pid);
-    if (!XFetchName(display, window, &windowTitle))
-    {
-      row[modelColumns.windowTitle] = "";
-    }
-    else
-    {
-      row[modelColumns.windowTitle] = windowTitle;
-    }
-    std::ifstream cmdline("/proc/" + std::to_string(pid) + "/cmdline");
-    std::string processName;
-    std::getline(cmdline, processName);
-    row[modelColumns.processName] = processName;
     row[modelColumns.index] = i;
-    cmdline.close();
   }
 }
 

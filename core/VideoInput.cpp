@@ -2,24 +2,6 @@
 
 #include <iostream>
 
-uint32_t SSBML::VideoInput::get_window_pid(Display *display, Window window)
-{
-  Atom property = XInternAtom(display, "_NET_WM_PID", False), type;
-  uint32_t *pidContainer, pid;
-  int form;
-  unsigned long remaining, bytes;
-  if (XGetWindowProperty(display, window, property, 0, 1, False, XA_CARDINAL,
-    &type, &form, &bytes, &remaining, (unsigned char**)(&pidContainer))
-    != Success)
-  {
-    perror("SSBML::VideoInput::get_window_pid(): XGetWindowProperty()");
-    return 0;
-  }
-  pid = *pidContainer;
-  XFree(pidContainer);
-  return pid;
-}
-
 Window* SSBML::VideoInput::get_all_visible_windows(Display **display,
   unsigned long *numWindows)
 {
@@ -39,6 +21,45 @@ Window* SSBML::VideoInput::get_all_visible_windows(Display **display,
   }
 
   return (Window*)list;
+}
+
+uint32_t SSBML::VideoInput::get_window_pid(Display *display, Window window)
+{
+  Atom property = XInternAtom(display, "_NET_WM_PID", False), type;
+  uint32_t *pidContainer, pid;
+  int form;
+  unsigned long remaining, bytes;
+  if (XGetWindowProperty(display, window, property, 0, 1, False, XA_CARDINAL,
+    &type, &form, &bytes, &remaining, (unsigned char**)(&pidContainer))
+    != Success)
+  {
+    perror("SSBML::VideoInput::get_window_pid(): XGetWindowProperty()");
+    return 0;
+  }
+  pid = *pidContainer;
+  XFree(pidContainer);
+  return pid;
+}
+
+std::string SSBML::VideoInput::get_process_name(uint32_t pid)
+{
+  std::string processName;
+  std::ifstream cmdline("/proc/" + std::to_string(pid) + "/cmdline");
+  std::getline(cmdline, processName);
+  cmdline.close();
+  return processName;
+}
+
+std::string SSBML::VideoInput::get_window_title(Display *display, Window window)
+{
+  char *windowTitle;
+  if (XFetchName(display, window, &windowTitle))
+  {
+    std::string tmp(windowTitle);
+    XFree(windowTitle);
+    return std::string(tmp);
+  }
+  return "";
 }
 
 SSBML::VideoInput::VideoInput(Display *display, Window window,

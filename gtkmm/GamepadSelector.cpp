@@ -16,22 +16,14 @@ std::string SSBML::GamepadSelector::get_selected_gamepad()
 void SSBML::GamepadSelector::refresh()
 {
   refTreeModel->clear();
-  numGamepads = Gamepad::get_gamepad_device_file_names(gamepadDeviceFileNames);
+  numGamepads = Gamepad::get_all_connected_gamepad_device_file_names(gamepadDeviceFileNames);
 
   for (unsigned long i = 0; i < numGamepads; i++)
   {
     std::string deviceFileName = gamepadDeviceFileNames[i];
     Gtk::TreeModel::Row row = *(refTreeModel->append());
     row[modelColumns.deviceFileName] = deviceFileName;
-    int fd = open(("/dev/input/" + deviceFileName).c_str(), O_RDONLY);
-    if (fd < 0)
-    {
-      perror("SBML::GamepadSelector::refresh(): open()");
-      continue;
-    }
-    char name[1024];
-    ioctl(fd, EVIOCGNAME(sizeof(name)), name);
-    row[modelColumns.deviceName] = name;
+    row[modelColumns.deviceName] = Gamepad::get_device_name(deviceFileName);
   }
 }
 

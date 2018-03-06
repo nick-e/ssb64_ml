@@ -7,6 +7,8 @@
 #include <X11/Xatom.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string>
+#include <fstream>
 
 namespace SSBML
 {
@@ -19,9 +21,11 @@ namespace SSBML
       unsigned int frameHeight);
     ~VideoInput();
     void get_frame(unsigned char *frame);
+    static uint32_t get_window_pid(Display *display, Window window);
+    static std::string get_window_title(Display *display, Window window);
+    static std::string get_process_name(uint32_t pid);
     static Window* get_all_visible_windows(Display **display,
       unsigned long *numWindows);
-    static uint32_t get_window_pid(Display *display, Window window);
   protected:
     Display *display;
     Window window;

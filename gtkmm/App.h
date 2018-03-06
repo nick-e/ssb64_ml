@@ -15,6 +15,7 @@
 
 #include "VideoInputSelector.h"
 #include "GamepadSelector.h"
+#include "RecordWindow.h"
 
 #define SSBML_APPLICATION_ID "com.nickscotteaton.ssbml"
 
@@ -38,18 +39,23 @@ namespace SSBML
       Gtk::TreeView vis_treeView;
       VideoInputSelector::ModelColumns vis_modelColumns;
       Glib::RefPtr<Gtk::ListStore> vis_refTreeModel;
-      Gtk::TreeModel::Row vis_row;
       Gtk::Button vis_button;
       Gtk::Frame gs_frame;
       Gtk::Box gs_box;
+      Gtk::TreeView gs_treeView;
+      GamepadSelector::ModelColumns gs_modelColumns;
+      Glib::RefPtr<Gtk::ListStore> gs_refTreeModel;
       Gtk::Button gs_button;
       Gtk::Button startButton;
-      Gtk::FileChooserButton dstDirChooser;
+      Gtk::Box dd_box;
+      Gtk::Label dd_label;
+      Gtk::FileChooserButton dd_fileChooser;
       Display *display;
-      ::Window recordWindow;
+      ::Window selectedWindow;
+      std::string selectedGamepadDeviceFileName;
       VideoInputSelector *videoInputSelector;
       GamepadSelector *gamepadSelector;
-      int gs_Fd;
+      RecordWindow *recordWindow;
 
       void get_selected_window();
       void get_selected_gamepad();
@@ -61,6 +67,7 @@ namespace SSBML
       void on_gamepadSelector_select_button_clicked();
       void on_gamepadSelector_row_activated(const Gtk::TreeModel::Path& path,
         Gtk::TreeViewColumn* column);
+      void on_startButton_clicked();
     };
 
     Gtk::Notebook notebook;

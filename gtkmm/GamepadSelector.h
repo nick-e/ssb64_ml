@@ -48,7 +48,7 @@ namespace SSBML
       ModelColumns modelColumns;
       Glib::RefPtr<Gtk::ListStore> refTreeModel;
       Gtk::ScrolledWindow scrolledWindow;
-      std::string gamepadDeviceFileNames[1024];
+      std::string gamepadDeviceFileNames[32];
       unsigned long numGamepads;
 
       void refresh();
