@@ -10,6 +10,7 @@
 
 #include "../core/Gamepad.h"
 #include "../core/VideoInput.h"
+#include "../core/RecordSession.h"
 
 namespace SSBML
 {
@@ -18,11 +19,9 @@ namespace SSBML
   public:
     Display *display;
     ::Window window;
-    Gamepad gamepad;
-    VideoInput videoInput;
+    std::string gamepadDeviceFileName;
     std::string destinationFolder;
-    pthread_t tid;
-    std::atomic<bool> quit;
+    RecordSession recordSession;
 
     RecordWindow(Display *display, ::Window window,
       std::string gamepadDeviceFileName, std::string destinationFolder);
