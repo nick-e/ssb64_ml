@@ -1,7 +1,7 @@
 #include "Gamepad.h"
 
 // bin must be at least 17 bytes
-void SSBML::Gamepad::gamepad_binary(char *bin)
+void SSBML::Gamepad::get_binary(char *bin)
 {
   bin[0] = A;
   bin[0] |= (B << 1);

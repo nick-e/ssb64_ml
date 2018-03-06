@@ -10,7 +10,7 @@ SSBML::RecordWindow::RecordWindow(Display *display, ::Window window,
   display(display), window(window),
   gamepadDeviceFileName(gamepadDeviceFileName),
   destinationFolder(destinationFolder),
-  recordSession(display, window, gamepadDeviceFileName, destinationFolder)
+  recordSession(display, window, gamepadDeviceFileName, destinationFolder + "/")
 {
   set_title("Record");
   set_border_width(0);

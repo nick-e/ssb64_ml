@@ -92,21 +92,67 @@ void SSBML::VideoInput::get_frame(unsigned char *frame)
 {
   XImage *image = XGetImage(display, window, 0, 0, windowAttributes.width,
     windowAttributes.height, AllPlanes, ZPixmap);
-  std::cout << image->bits_per_pixel << std::endl;
-  std::cout << image->width << ", " << image->height << std::endl;
-  std::cout << image->bytes_per_line << std::endl;
+  //std::cout << "writing frame" << std::endl;
+
+  double ratioX = image->width / frameWidth;
+  double ratioY = image->height / frameHeight;
 
   // Bilinear interpolation
   // https://rosettacode.org/wiki/Bilinear_interpolation
-  for (int x = 0, y = 0; y < frameHeight; x++)
+  for (int y = 0; y < frameHeight; y++)
+  {
+    float gy = y / (float)frameHeight * (windowAttributes.height - 1);
+    int gyi = (int)gy;
+    for (int x = 0; x < frameWidth; x++)
+    {
+      float gx = x / (float)frameWidth * (windowAttributes.width - 1);
+      int gxi = (int)gx;
+      unsigned long pixel = XGetPixel(image, gxi, gyi);
+      unsigned char red = (pixel & image->red_mask) >> 16;
+      unsigned char green = (pixel & image->green_mask) >> 8;
+      unsigned char blue = (pixel & image->blue_mask);
+
+      unsigned long c00Pixel = XGetPixel(image, gxi, gyi);
+      unsigned char c00Red = (c00Pixel & image->red_mask) >> 16;
+      unsigned char c00Green = (c00Pixel & image->green_mask) >> 8;
+      unsigned char c00Blue = (c00Pixel & image->blue_mask);
+
+      unsigned long c10Pixel = XGetPixel(image, gxi + 1, gyi);
+      unsigned char c10Red = (c10Pixel & image->red_mask) >> 16;
+      unsigned char c10Green = (c10Pixel & image->green_mask) >> 8;
+      unsigned char c10Blue = (c10Pixel & image->blue_mask);
+
+      unsigned long c01Pixel = XGetPixel(image, gxi, gyi + 1);
+      unsigned char c01Red = (c01Pixel & image->red_mask) >> 16;
+      unsigned char c01Green = (c01Pixel & image->green_mask) >> 8;
+      unsigned char c01Blue = (c01Pixel & image->blue_mask);
+
+      unsigned long c11Pixel = XGetPixel(image, gxi + 1, gyi + 1);
+      unsigned char c11Red = (c11Pixel & image->red_mask) >> 16;
+      unsigned char c11Green = (c11Pixel & image->green_mask) >> 8;
+      unsigned char c11Blue = (c11Pixel & image->blue_mask);
+
+      int index = (y * frameWidth + x) * 3;
+      frame[index + 2] = (uint8_t)blerp(c00Red, c10Red, c01Red, c11Red, gx - gxi,
+        gy - gyi);
+      frame[index + 1] = (uint8_t)blerp(c00Green, c10Green, c01Green, c11Green,
+        gx - gxi, gy - gyi);;
+      frame[index] = (uint8_t)blerp(c00Blue, c10Blue, c01Blue, c11Blue,
+        gx - gxi, gy - gyi);
+    }
+  }
+  /*for (int x = 0, y = 0; y < frameHeight; x++)
   {
     if (x > frameWidth)
     {
       x = 0;
       y++;
     }
-    float gx = x / (float)frameWidth * windowAttributes.width - 1;
-    float gy = y / (float)frameHeight * windowAttributes.height - 1;
+
+    float gx = x / (float)frameWidth * (windowAttributes.width - 1);
+    float gy = y / (float)frameHeight * (windowAttributes.height - 1);
+    gx = x * ratioX;
+    gy = y * ratioY;
     int gxi = (int)gx;
     int gyi = (int)gy;
 
@@ -136,8 +182,10 @@ void SSBML::VideoInput::get_frame(unsigned char *frame)
     frame[index + 1] = (uint8_t)blerp(c00Green, c10Green, c01Green, c11Green,
       gx - gxi, gy - gyi);;
     frame[index + 2] = (uint8_t)blerp(c00Blue, c10Blue, c01Blue, c11Blue,
-      gx - gxi, gy - gyi);;
-  }
+      gx - gxi, gy - gyi);
+  }*/
 
   XFree(image);
+
+  //std::cout << "done" << std::endl;
 }

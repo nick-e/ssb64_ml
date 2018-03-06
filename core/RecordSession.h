@@ -4,9 +4,18 @@
 #include <string>
 #include <X11/X.h>
 #include <X11/Xlib.h>
+#include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include "Gamepad.h"
 #include "VideoInput.h"
+
+#define FRAME_WIDTH 256
+#define FRAME_HEIGHT 144
 
 namespace SSBML
 {
