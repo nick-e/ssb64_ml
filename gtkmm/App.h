@@ -6,16 +6,20 @@
 #include <gtkmm-3.0/gtkmm/label.h>
 #include <gtkmm-3.0/gtkmm/button.h>
 #include <gtkmm-3.0/gtkmm/filechooserbutton.h>
+#include <gtkmm-3.0/gtkmm/filechooserdialog.h>
 #include <gtkmm-3.0/gtkmm/frame.h>
 #include <gtkmm-3.0/gtkmm/treemodel.h>
 #include <gtkmm-3.0/gtkmm/liststore.h>
 #include <gtkmm-3.0/gtkmm/treeview.h>
+#include <gtkmm-3.0/gtkmm/spinbutton.h>
+#include <gtkmm-3.0/gtkmm/adjustment.h>
 #include <X11/X.h>
 #include <X11/Xlib.h>
 
 #include "VideoInputSelector.h"
 #include "GamepadSelector.h"
 #include "RecordWindow.h"
+#include "TrainWindow.h"
 
 #define SSBML_APPLICATION_ID "com.nickscotteaton.ssbml"
 
@@ -27,6 +31,35 @@ namespace SSBML
     App();
 
   protected:
+    class TrainPage : public Gtk::Box
+    {
+    public:
+      TrainPage(App &app);
+
+    protected:
+      App &app;
+      Gtk::Box model_box;
+      Gtk::Label model_label1;
+      Gtk::FileChooserButton model_fileChooser;
+      Gtk::Label model_label2;
+      Gtk::Button model_button;
+      Gtk::Box epoch_box;
+      Gtk::Label epoch_label;
+      Gtk::SpinButton epoch_spinButton;
+      Gtk::Frame data_frame;
+      Gtk::Box data_box;
+      Gtk::Box train_box;
+      Gtk::Label train_label;
+      Gtk::FileChooserButton train_fileChooser;
+      Gtk::Box test_box;
+      Gtk::Label test_label;
+      Gtk::FileChooserButton test_fileChooser;
+      Gtk::Button trainButton;
+      TrainWindow *trainWindow;
+
+      void on_create_model_button_clicked();
+    };
+
     class RecordPage : public Gtk::Box
     {
     public:
@@ -72,6 +105,7 @@ namespace SSBML
 
     Gtk::Notebook notebook;
     RecordPage recordPage;
+    TrainPage trainPage;
   };
 }
 
