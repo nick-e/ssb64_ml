@@ -38,6 +38,7 @@ namespace SSBML
 
     protected:
       App &app;
+      Gtk::Frame model_frame;
       Gtk::Box model_box;
       Gtk::Label model_label1;
       Gtk::FileChooserButton model_fileChooser;
@@ -58,6 +59,7 @@ namespace SSBML
       TrainWindow *trainWindow;
 
       void on_create_model_button_clicked();
+      void on_train_button_clicked();
     };
 
     class RecordPage : public Gtk::Box

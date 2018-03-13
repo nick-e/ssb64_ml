@@ -2,6 +2,7 @@
 #define NNMODEL_H
 
 #include <string>
+#include <iostream>
 
 namespace SSBML
 {
@@ -9,6 +10,7 @@ namespace SSBML
   {
   public:
     static void create_model(std::string dst);
+    static void train_model(std::string src, std::string trainingDataDir);
   };
 }
 

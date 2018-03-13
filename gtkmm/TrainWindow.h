@@ -3,6 +3,8 @@
 
 #include <gtkmm-3.0/gtkmm/window.h>
 
+#include "../core/NNModel.h"
+
 namespace SSBML
 {
   class TrainWindow : public Gtk::Window

@@ -4,17 +4,27 @@ void SSBML::App::TrainPage::on_create_model_button_clicked()
 {
   Gtk::FileChooserDialog dialog = Gtk::FileChooserDialog(app,
     "Create File To Store Model", Gtk::FILE_CHOOSER_ACTION_SAVE);
-  dialog.set_current_name("model.nn");
+  dialog.set_current_name("model");
   dialog.set_transient_for(app);
   dialog.add_button("_Cancel", Gtk::RESPONSE_CANCEL);
   dialog.add_button("Save", Gtk::RESPONSE_YES);
-  dialog.select_filename("model.nn");
+  dialog.select_filename("model.ckpt");
   int result = dialog.run();
+  if (result == Gtk::RESPONSE_YES)
+  {
+    NNModel::create_model(dialog.get_filename());
+  }
+}
+
+void SSBML::App::TrainPage::on_train_button_clicked()
+{
+  NNModel::train_model(model_fileChooser.get_uri(), train_fileChooser.get_filename());
 }
 
 SSBML::App::TrainPage::TrainPage(SSBML::App &app) :
   Box(Gtk::ORIENTATION_VERTICAL, 10),
   app(app),
+  model_frame("Model To Train"),
   model_box(Gtk::ORIENTATION_HORIZONTAL, 10),
   model_label1("Model To Train:\t"),
   model_label2("\tOr\t"),
@@ -59,6 +69,8 @@ SSBML::App::TrainPage::TrainPage(SSBML::App &app) :
   epoch_box.add(epoch_spinButton);
   add(epoch_box);
 
+  trainButton.signal_clicked().connect(sigc::mem_fun(*this,
+    &TrainPage::on_train_button_clicked));
   trainButton.set_halign(Gtk::ALIGN_END);
   trainButton.set_valign(Gtk::ALIGN_END);
   pack_end(trainButton);
