@@ -1,5 +1,7 @@
 *.docx
 *.pdf
 data/
-build/
+build/*
+!build/Makefile
 *.ppk
+src/python/__pycache__
