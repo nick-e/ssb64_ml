@@ -58,7 +58,6 @@ static void record_thread_routine(ssbml::record_session &recordSession,
         //std::cerr << "Getting frame took " << deltaTime2 << " microseconds" << std::endl;
       }
 
-      vo->write_frame();
       //std::cout << "\t" << t2.get_delta_time() << std::endl;
       if ((deltaTime2 = t2.get_delta_time()) > microsecondsBetweenFrames)
       {

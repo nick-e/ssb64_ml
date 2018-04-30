@@ -14,8 +14,6 @@ extern "C"
   #include <libavutil/error.h>
 }
 
-#include "timer.h"
-
 namespace ssbml
 {
   class video_output

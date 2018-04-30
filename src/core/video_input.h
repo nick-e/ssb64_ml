@@ -20,6 +20,7 @@ extern "C"
 {
   #include <libavformat/avformat.h>
   #include <libavutil/frame.h>
+  #include <xcb/xcb.h>
 }
 
 #include "video_output.h"
@@ -51,6 +52,7 @@ namespace ssbml
     XWindowAttributes windowAttributes;
     uint8_t *rgbaBuf, *rgbaBuf1, *rgbaBuf2, *rgbBuf;
     uint8_t *lumaBuf, *redChromaBuf, *blueChromaBuf;
+    xcb_connection_t *xcbCon;
 
     void get_image();
   };

@@ -72,8 +72,14 @@ ssbml::video_input::video_input(Display *display, Window window,
   frameWidth(frameWidth),
   frameHeight(frameHeight),
   frameSize(frameWidth * frameHeight),
-  chromaSize(frameWidth * frameHeight / 4)
+  chromaSize(frameWidth * frameHeight / 4),
+  xcbCon(xcb_connect(DisplayString(display), NULL))
 {
+  if (xcb_connection_has_error(xcbCon) > 0)
+  {
+    throw std::runtime_error("Could not connect to X server");
+  }
+
   XGetWindowAttributes(display, window, &windowAttributes);
 
   cudaMalloc(&rgbaBuf1, windowAttributes.width * windowAttributes.height * 4);
@@ -86,6 +92,7 @@ ssbml::video_input::video_input(Display *display, Window window,
 
 ssbml::video_input::~video_input()
 {
+  xcb_disconnect(xcbCon);
   cudaFree(rgbaBuf1);
   cudaFree(rgbaBuf2);
   cudaFree(rgbBuf);
@@ -249,11 +256,33 @@ __global__ void bilinear(uint8_t *rgbaBuf_in, uint8_t *rgbaBuf_out,
 
 void ssbml::video_input::get_image()
 {
+  xcb_get_image_cookie_t cookie;
+  xcb_get_image_reply_t *reply;
+  xcb_generic_error_t *err = NULL;
   uint64_t width = windowAttributes.width, height = windowAttributes.height;
-  XImage *image = XGetImage(display, window, 0, 0, width, height, AllPlanes,
+  uint8_t *imageData;
+
+  cookie = xcb_get_image(xcbCon, XCB_IMAGE_FORMAT_Z_PIXMAP, window, 0, 0, width, height, ~0);
+  reply = xcb_get_image_reply(xcbCon, cookie, &err);
+  if (err)
+  {
+    std::cerr << "Cannot grab window image data. response type="
+      << err->response_type << " error code=" << err->error_code << " sequence="
+      << err->sequence << " resource id=" << err->resource_id << " minor code="
+      << err->minor_code << " major code=" << err->major_code << std::endl;
+  }
+  if (!reply)
+  {
+    std::cerr << "Reply was empty" << std::endl;
+  }
+  imageData = xcb_get_image_data(reply);
+  cudaMemcpy(rgbaBuf1, imageData, height * width * 4, cudaMemcpyHostToDevice);
+  free(reply);
+
+  /*XImage *image = XGetImage(display, window, 0, 0, width, height, AllPlanes,
     ZPixmap);
   cudaMemcpy(rgbaBuf1, image->data, height * width * 4, cudaMemcpyHostToDevice);
-  XFree(image);
+  XFree(image);*/
 
   uint8_t *rgbaBuf_in = rgbaBuf1, *rgbaBuf_out = rgbaBuf2;
   dim3 threads(THREAD_COUNT, THREAD_COUNT);
@@ -282,15 +311,16 @@ void ssbml::video_input::get_image()
       DIVCEIL(frameHeight, THREAD_COUNT));
     bilinear<<<blocks, threads>>>(rgbaBuf_in, rgbaBuf_out, frameWidth,
       frameHeight, width, height);
+    std::swap(rgbaBuf_in, rgbaBuf_out);
     cudaDeviceSynchronize();
   }
-  rgbaBuf = rgbaBuf_out;
+  rgbaBuf = rgbaBuf_in;
 }
 
 ssbml::video_input& ssbml::video_input::operator>>(video_output &videoOutput)
 {
-
   get_frame(*videoOutput.frame);
+  videoOutput.write_frame();
   return *this;
 }
 

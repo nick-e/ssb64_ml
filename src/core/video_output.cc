@@ -161,7 +161,6 @@ void ssbml::video_output::write_frame()
     av_strerror(ret, errBuf, sizeof(errBuf));
     throw std::runtime_error("avcodec_send_frame: " + std::string(errBuf));
   }
-  timer t;
   while (true)
   {
     ret = avcodec_receive_packet(cctx, pkt);
@@ -179,7 +178,6 @@ void ssbml::video_output::write_frame()
     av_packet_rescale_ts(pkt, cctx->time_base, stream->time_base);
     pkt->stream_index = stream->index;
 
-    timer t;
     if (av_interleaved_write_frame(fctx, pkt) < 0)
     {
       char errBuf[1024];
@@ -187,7 +185,6 @@ void ssbml::video_output::write_frame()
       throw std::runtime_error("av_interleaved_write_frame: "
         + std::string(errBuf));
     }
-    std::cout << t.get_delta_time() << std::endl;
 
     av_packet_unref(pkt);
   }

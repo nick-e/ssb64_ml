@@ -36,6 +36,7 @@ LIBS = \
 	-lavformat \
 	-lavcodec \
 	-lavutil \
+	-lxcb \
 	`pkg-config --libs gtkmm-3.0`
 
 INCL_DIRS = -I/opt/cuda/include
