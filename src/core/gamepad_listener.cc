@@ -6,61 +6,14 @@ bool ssbml::gamepad_listener::get_btn_mode()
   return buttons.mode;
 }
 
-int ssbml::gamepad_listener::get_device_file()
+void ssbml::gamepad_listener::listen_thread_routine(ssbml::gamepad_listener &gl)
 {
-  return deviceFile;
-}
-
-bool ssbml::gamepad_listener::get_quit()
-{
-  return quit;
-}
-
-void ssbml::gamepad_listener::decompress(const compressed &c)
-{
-  std::lock_guard<std::mutex> lock(m);
-  buttons.a = c.buttons & 0x1;
-  buttons.b = (c.buttons >> 1) & 0x1;
-  buttons.x = (c.buttons >> 2) & 0x1;
-  buttons.y = (c.buttons >> 3) & 0x1;
-  buttons.tr = (c.buttons >> 4) & 0x1;
-  buttons.tl = (c.buttons >> 5) & 0x1;
-  buttons.thumbr = (c.buttons >> 6) & 0x1;
-  buttons.thumbl = (c.buttons >> 7) & 0x1;
-  buttons.select = (c.buttons >> 8) & 0x1;
-  buttons.start = (c.buttons >> 9) & 0x1;
-  buttons.mode = (c.buttons >> 10) & 0x1;
-  analogs = c.analogs;
-}
-
-void ssbml::gamepad_listener::compress(compressed &c)
-{
-  std::lock_guard<std::mutex> lock(m);
-  c.buttons = buttons.a | (buttons.b << 1) | (buttons.x << 2)
-    | (buttons.y << 3) | (buttons.tr << 4) | (buttons.tl << 5)
-    | (buttons.thumbr << 6) | (buttons.thumbl << 7) | (buttons.select << 8)
-    | (buttons.start << 9) | (buttons.mode << 10);
-  c.analogs = analogs;
-}
-
-std::ofstream& operator<<(std::ofstream &stream, ssbml::gamepad_listener &g)
-{
-  ssbml::gamepad::compressed c;
-  g.compress(c);
-  stream.write((char*)&c, sizeof(c));
-  return stream;
-}
-
-
-static void listen_thread_routine(ssbml::gamepad_listener &gl)
-{
-  int deviceFile = gl.get_device_file();
   struct input_event e;
   std::unique_lock<std::mutex> lock(gl.m);
   lock.unlock();
-  while (!gl.get_quit())
+  while (!gl.quit)
   {
-    if (read(deviceFile, &e, sizeof(e)) < 0)
+    if (read(gl.deviceFile, &e, sizeof(e)) < 0)
     {
       if (errno != EAGAIN)
       {
@@ -144,8 +97,8 @@ static void listen_thread_routine(ssbml::gamepad_listener &gl)
 }
 
 ssbml::gamepad_listener::gamepad_listener(std::string deviceFileName) :
+  threadsafe_gamepad(),
   quit(false),
-  deviceFileName(deviceFileName),
   deviceFile(open(("/dev/input/" + deviceFileName).c_str(), O_RDONLY
     | O_NONBLOCK)),
   listenThread(listen_thread_routine, std::ref(*this))
@@ -158,7 +111,7 @@ ssbml::gamepad_listener::gamepad_listener(std::string deviceFileName) :
   {
     char name[1024];
     ioctl(deviceFile, EVIOCGNAME(sizeof(name)), name);
-    deviceFileName = std::string(name);
+    deviceName = std::string(name);
   }
 }
 

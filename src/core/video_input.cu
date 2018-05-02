@@ -101,17 +101,6 @@ ssbml::video_input::~video_input()
   cudaFree(blueChromaBuf);
 }
 
-/*static float lerp_c(float s, float e, float t)
-{
-  return s + (e - s) * t;
-}
-
-static float blerp_c(float c00, float c10, float c01, float c11, float tx,
-  float ty)
-{
-  return lerp_c(lerp_c(c00, c10, tx), lerp_c(c01, c11, tx), ty);
-}*/
-
 __global__ void reduce_width(uint8_t *rgbaBuf_in, uint8_t *rgbaBuf_out,
   int width, int height)
 {

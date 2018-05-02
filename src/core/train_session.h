@@ -40,37 +40,43 @@ namespace ssbml
       Done = 0x80
     };
 
+    void get_train_info(bool *modelLoaded, uint64_t *currentEpoch,
+      uint64_t *currentFileIndex, uint64_t *currentFileFrameCount,
+      std::string &currentFileName, uint64_t *currentFrame, double *progress,
+      uint64_t *totalFiles, bool *trainingCompleted);
+    static void create_model(std::string dstDir);
+
     train_session(std::string modelDir, std::string trainingDataDir,
-      uint64_t epochs, uint64_t batchSize, uint64_t frameWidth,
+      uint64_t totalEpochs, uint64_t batchSize, uint64_t frameWidth,
       uint64_t frameHeight, Glib::Dispatcher &dispatcher);
     ~train_session();
 
-    void set_train_info(bool modelLoaded, uint64_t currentEpoch,
-      uint64_t currentFile, uint64_t currentFileFrameCount,
-      std::string currentFileName, uint64_t currentFrame, double progress,
-      uint64_t fileCount, bool doneTraining);
-    void get_train_info(bool *modelLoaded, uint64_t *currentEpoch,
-      uint64_t *currentFile, uint64_t *currentFileFrameCount,
-      std::string &currentFileName, uint64_t *currentFrame, double *progress,
-      uint64_t *fileCount, bool *doneTraining);
-    bool get_quit();
-
-    static void create_model(std::string dstDir);
-
   private:
     Glib::Dispatcher &dispatcher;
-    std::atomic<bool> quit;
-    uint64_t currentEpoch;
-    uint64_t currentFrame;
-    uint64_t currentFile;
-    uint64_t currentFileFrameCount;
-    std::string currentFileName;
-    double progress;
-    uint64_t fileCount;
     bool modelLoaded;
-    bool doneTraining;
+    bool trainingCompleted;
+    double progress;
+    uint64_t batchSize;
+    uint64_t currentEpoch;
+    uint64_t currentFileIndex;
+    uint64_t currentFileFrameCount;
+    uint64_t currentFrame;
+    uint64_t frameHeight;
+    uint64_t frameWidth;
+    uint64_t totalEpochs;
+    uint64_t totalFiles;
+    std::string currentFileName;
+    std::string modelDir;
+    std::string trainingDataDir;
+    std::atomic<bool> quit;
     std::mutex m;
     std::thread trainThread;
+
+    void set_train_info(bool modelLoaded, uint64_t currentEpoch,
+      uint64_t currentFileIndex, uint64_t currentFileFrameCount,
+      std::string currentFileName, uint64_t currentFrame, double progress,
+      uint64_t totalFiles, bool trainingCompleted);
+    static void train_thread_routine(train_session &trainSession);
   };
 }
 

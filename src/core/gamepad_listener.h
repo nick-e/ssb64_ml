@@ -17,35 +17,28 @@
 #include <linux/input.h>
 #include <sys/ioctl.h>
 
-#include "gamepad.h"
+#include "threadsafe_gamepad.h"
 
 namespace ssbml
 {
-  class gamepad_listener : public gamepad
+  class gamepad_listener : public threadsafe_gamepad
   {
   public:
-    std::mutex m;
+    bool get_btn_mode();
+    static unsigned long get_all_connected_gamepad_device_file_names(std::string *dest);
+    static std::string get_device_name(std::string deviceFileName);
 
     gamepad_listener(std::string deviceFileName);
     ~gamepad_listener();
 
-    int get_device_file();
-    bool get_btn_mode();
-    bool get_quit();
-    void compress(compressed &c);
-    void decompress(const compressed &c);
-    static unsigned long get_all_connected_gamepad_device_file_names(std::string *dest);
-    static std::string get_device_name(std::string deviceFileName);
-
   protected:
     std::atomic<bool> quit;
-    std::string deviceFileName;
     std::string deviceName;
     int deviceFile;
     std::thread listenThread;
+
+    static void listen_thread_routine(ssbml::gamepad_listener &gl);
   };
 }
-
-std::ofstream& operator<<(std::ofstream &stream, ssbml::gamepad_listener &g);
 
 #endif

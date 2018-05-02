@@ -6,6 +6,7 @@ CORE_OBJS = \
 	gamepad_spoofer.o \
 	record_session.o \
 	test_session.o \
+	threadsafe_gamepad.o \
 	timer.o \
 	train_session.o \
 	util.o \
@@ -66,6 +67,9 @@ record_session.o: $(CORE_DIR)/record_session.cc $(CORE_DIR)/record_session.h
 
 test_session.o: $(CORE_DIR)/test_session.cc $(CORE_DIR)/test_session.h
 	$(CC) $(CFLAGS) $(CORE_DIR)/test_session.cc $(GTKMM_FLAGS) $(INCL_DIRS)
+
+threadsafe_gamepad.o: $(CORE_DIR)/threadsafe_gamepad.cc $(CORE_DIR)/threadsafe_gamepad.h
+	$(CC) $(CFLAGS) $(CORE_DIR)/threadsafe_gamepad.cc $(INCL_DIRS)
 
 timer.o: $(CORE_DIR)/timer.cc $(CORE_DIR)/timer.h
 	$(CC) $(CFLAGS) $(CORE_DIR)/timer.cc $(INCL_DIRS)

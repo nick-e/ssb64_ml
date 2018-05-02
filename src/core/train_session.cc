@@ -1,50 +1,40 @@
 #include "train_session.h"
 
 void ssbml::train_session::set_train_info(bool modelLoaded,
-  uint64_t currentEpoch, uint64_t currentFile, uint64_t currentFileFrameCount,
-  std::string currentFileName, uint64_t currentFrame, double progress,
-  uint64_t fileCount, bool doneTraining)
+  uint64_t currentEpoch, uint64_t currentFileIndex,
+  uint64_t currentFileFrameCount, std::string currentFileName,
+  uint64_t currentFrame, double progress, uint64_t totalFiles,
+  bool trainingCompleted)
 {
   std::unique_lock<std::mutex> lock(m);
-  this->modelLoaded = modelLoaded;
   this->currentEpoch = currentEpoch;
-  this->currentFile = currentFile;
+  this->currentFileIndex = currentFileIndex;
   this->currentFileFrameCount = currentFileFrameCount;
   this->currentFileName = currentFileName;
   this->currentFrame = currentFrame;
+  this->modelLoaded = modelLoaded;
   this->progress = progress;
-  this->fileCount = fileCount;
-  this->doneTraining = doneTraining;
+  this->totalFiles = totalFiles;
+  this->trainingCompleted = trainingCompleted;
   dispatcher.emit();
 }
 
 void ssbml::train_session::get_train_info(bool *modelLoaded,
-  uint64_t *currentEpoch, uint64_t *currentFile,
+  uint64_t *currentEpoch, uint64_t *currentFileIndex,
   uint64_t *currentFileFrameCount, std::string &currentFileName,
-  uint64_t *currentFrame, double *progress, uint64_t *fileCount,
-  bool *doneTraining)
+  uint64_t *currentFrame, double *progress, uint64_t *totalFiles,
+  bool *trainingCompleted)
 {
   std::lock_guard<std::mutex> lock(m);
-  *modelLoaded = this->modelLoaded;
   *currentEpoch = this->currentEpoch;
-  *currentFile = this->currentFile;
+  *currentFileIndex = this->currentFileIndex;
   *currentFileFrameCount = this->currentFileFrameCount;
   currentFileName = this->currentFileName;
   *currentFrame = this->currentFrame;
+  *modelLoaded = this->modelLoaded;
   *progress = this->progress;
-  *fileCount = this->fileCount;
-  *doneTraining = this->doneTraining;
-}
-
-bool ssbml::train_session::get_quit()
-{
-  return quit;
-}
-
-ssbml::train_session::~train_session()
-{
-  quit = true;
-  trainThread.join();
+  *totalFiles = this->totalFiles;
+  *trainingCompleted = this->trainingCompleted;
 }
 
 void ssbml::train_session::create_model(std::string dstDir)
@@ -120,46 +110,84 @@ static int get_training_file_names(std::string trainingFilesDir,
   return 0;
 }
 
-static void train_thread_routine(ssbml::train_session &trainSession,
-  std::string modelDir, std::string trainingDataDir, uint64_t epochs,
-  uint64_t batchSize, uint64_t frameWidth, uint64_t frameHeight)
+ssbml::train_session::train_session(std::string modelDir,
+  std::string trainingDataDir, uint64_t totalEpochs, uint64_t batchSize,
+  uint64_t frameWidth, uint64_t frameHeight, Glib::Dispatcher &dispatcher) :
+  dispatcher(dispatcher),
+  modelLoaded(false),
+  trainingCompleted(false),
+  progress(0.0),
+  batchSize(batchSize),
+  currentEpoch(0),
+  currentFileIndex(0),
+  currentFileFrameCount(0),
+  currentFrame(0),
+  frameHeight(frameHeight),
+  frameWidth(frameWidth),
+  totalEpochs(totalEpochs),
+  totalFiles(0),
+  quit(true),
+  trainThread(train_thread_routine, std::ref(*this))
 {
-  uint64_t totalFrames = 0, trainedFrames = 0, fileCount = 0;
-  std::vector<std::string> trainingFiles;
 
-  if (get_training_file_names(trainingDataDir, trainingFiles, &totalFrames) < 0)
+}
+
+ssbml::train_session::~train_session()
+{
+  quit = true;
+  trainThread.join();
+}
+
+void ssbml::train_session::train_thread_routine(
+  ssbml::train_session &trainSession)
+{
+  bool modelSaved = false;
+  int readFd;
+  int writeFd;
+  uint8_t *buf;
+  uint8_t *gamepadBuf;
+  uint8_t *labelBuf;
+  uint8_t *rgbBuf;
+  uint64_t gamepadBufSize = sizeof(ssbml::gamepad::compressed);
+  uint64_t rgbBufSize = trainSession.frameWidth * trainSession.frameHeight * 3;
+  uint64_t bufSize = rgbBufSize + gamepadBufSize * 2;
+  uint64_t totalFiles = 0;
+  uint64_t totalFrames = 0;
+  uint64_t trainedFrames = 0;
+  std::string modelDir;
+  std::vector<std::string> trainingFiles;
+  std::vector<char*> args;
+  ssbml::timer t;
+
+  if (get_training_file_names(trainSession.trainingDataDir, trainingFiles,
+    &totalFrames) < 0)
   {
     return;
   }
-  totalFrames *= epochs;
-  fileCount = trainingFiles.size();
+  totalFrames *= trainSession.totalEpochs;
   trainSession.set_train_info(false, 0, 0, 0, "", 0, 0.0, 0, false);
 
-  int readFd, writeFd;
-  std::vector<char*> args;
-  modelDir = modelDir.substr(0, modelDir.find_last_of("."));
+  modelDir = trainSession.modelDir.substr(0,
+    trainSession.modelDir.find_last_of("."));
   args.push_back(const_cast<char*>("python"));
   args.push_back(const_cast<char*>("../src/python/train.py"));
-  args.push_back(const_cast<char*>(modelDir.c_str()));
-  args.push_back(const_cast<char*>(std::to_string(frameWidth).c_str()));
-  args.push_back(const_cast<char*>(std::to_string(frameHeight).c_str()));
-  args.push_back(const_cast<char*>(std::to_string(batchSize).c_str()));
+  args.push_back(const_cast<char*>(trainSession.modelDir.c_str()));
+  args.push_back(const_cast<char*>(std::to_string(trainSession.frameWidth).c_str()));
+  args.push_back(const_cast<char*>(std::to_string(trainSession.frameHeight).c_str()));
+  args.push_back(const_cast<char*>(std::to_string(trainSession.batchSize).c_str()));
   args.push_back(NULL);
   if (ssbml::launch_program("python", (char**)&args[0], &readFd, &writeFd) < 0)
   {
     return;
   }
 
-  ssbml::timer t;
-  uint64_t rgbBufSize = frameWidth * frameHeight * 3,
-    gamepadBufSize = sizeof(ssbml::gamepad::compressed),
-    bufSize = rgbBufSize + gamepadBufSize * 2;
-  uint8_t *buf = new uint8_t[bufSize], *rgbBuf = buf,
-    *gamepadBuf = rgbBuf + rgbBufSize, *labelBuf = gamepadBuf + gamepadBufSize;
-  bool modelLoaded = false;
-  while (!modelLoaded)
+  buf = new uint8_t[bufSize];
+  rgbBuf = buf;
+  gamepadBuf = rgbBuf + rgbBufSize;
+  labelBuf = gamepadBuf + gamepadBufSize;
+  while (!trainSession.modelLoaded)
   {
-    if (trainSession.get_quit())
+    if (trainSession.quit)
     {
       close(readFd);
       close(writeFd);
@@ -188,7 +216,7 @@ static void train_thread_routine(ssbml::train_session &trainSession,
       switch (flag)
       {
         case (uint8_t)ssbml::train_session::Py2CC_Flag::ModelLoaded:
-          modelLoaded = true;
+          trainSession.modelLoaded = true;
           break;
         default:
           std::cerr << "Received close(readFd); flag 0x" << std::setfill('0')
@@ -197,25 +225,28 @@ static void train_thread_routine(ssbml::train_session &trainSession,
       }
     }
   }
-  trainSession.set_train_info(true, 0, 0, 0, "", 0, 0.0, fileCount, false);
+  trainSession.set_train_info(true, 0, 0, 0, "", 0, 0.0, trainingFiles.size(),
+    false);
 
-  for (uint64_t epoch = 0; epoch < epochs; ++epoch)
+  for (uint64_t currentEpoch = 0; currentEpoch < trainSession.totalEpochs;
+    ++currentEpoch)
   {
-    for (std::vector<std::string>::size_type file = 0; file
-      < trainingFiles.size(); ++file)
+    for (std::vector<std::string>::size_type currentFileIndex = 0;
+      currentFileIndex < trainingFiles.size(); ++currentFileIndex)
     {
-      std::string fileName = trainingFiles[file];
+      std::string fileName = trainingFiles[currentFileIndex];
       ssbml::video_file videoFile(fileName + ".mp4");
       ssbml::gamepad_file gamepadFile(fileName + ".gamepad");
       uint64_t currentFileFrameCount = videoFile.get_total_frames();
-      uint64_t batches = currentFileFrameCount / (batchSize + 1);
-      uint64_t excessFrames = currentFileFrameCount - batches * batchSize;
+      uint64_t batches = currentFileFrameCount / (trainSession.batchSize + 1);
+      uint64_t excessFrames = currentFileFrameCount - batches
+        * trainSession.batchSize;
 
-      for (uint64_t batch = 0; batch < batches; ++batch)
+      for (uint64_t currentBatch = 0; currentBatch < batches; ++currentBatch)
       {
-        trainSession.set_train_info(true, epoch, file, currentFileFrameCount,
-          fileName, batch * batchSize, (double)trainedFrames / totalFrames,
-          fileCount, false);
+        trainSession.set_train_info(true, currentEpoch, currentFileIndex,
+          currentFileFrameCount, fileName, currentBatch * trainSession.batchSize,
+          (double)trainedFrames / totalFrames, totalFiles, false);
 
         buf[0] = (uint8_t)ssbml::train_session::CC2Py_Flag::Batch;
         if (write(writeFd, buf, 1) < 0)
@@ -227,9 +258,10 @@ static void train_thread_routine(ssbml::train_session &trainSession,
           return;
         }
         // Send the frames and gamepad info in the batch
-        for (uint64_t frame = 0; frame < batchSize; ++frame)
+        for (uint64_t currentFrame = 0; currentFrame < trainSession.batchSize;
+          ++currentFrame)
         {
-          if (trainSession.get_quit())
+          if (trainSession.quit)
           {
             close(readFd);
             close(writeFd);
@@ -254,7 +286,7 @@ static void train_thread_routine(ssbml::train_session &trainSession,
         bool batchTrained = false;
         while (!batchTrained)
         {
-          if (trainSession.get_quit())
+          if (trainSession.quit)
           {
             close(readFd);
             close(writeFd);
@@ -291,13 +323,13 @@ static void train_thread_routine(ssbml::train_session &trainSession,
             }
           }
         }
-        trainedFrames += batchSize;
+        trainedFrames += trainSession.batchSize;
       }
       trainedFrames += excessFrames;
     }
   }
 
-  trainSession.set_train_info(true, 0, 0, 0, "", 0, 1.0, fileCount, false);
+  trainSession.set_train_info(true, 0, 0, 0, "", 0, 1.0, totalFiles, false);
 
   buf[0] = (uint8_t)ssbml::train_session::CC2Py_Flag::Done;
   if (write(writeFd, buf, 1) < 0)
@@ -309,10 +341,9 @@ static void train_thread_routine(ssbml::train_session &trainSession,
     return;
   }
 
-  bool modelSaved = false;
   while (!modelSaved)
   {
-    if (trainSession.get_quit())
+    if (trainSession.quit)
     {
       close(readFd);
       close(writeFd);
@@ -353,28 +384,8 @@ static void train_thread_routine(ssbml::train_session &trainSession,
     }
   }
 
-  trainSession.set_train_info(true, 0, 0, 0, "", 0, 1.0, fileCount, true);
+  trainSession.set_train_info(true, 0, 0, 0, "", 0, 1.0, totalFiles, true);
   close(readFd);
   close(writeFd);
   delete[] buf;
-}
-
-ssbml::train_session::train_session(std::string modelDir,
-  std::string trainingDataDir, uint64_t epochs, uint64_t batchSize,
-  uint64_t frameWidth, uint64_t frameHeight, Glib::Dispatcher &dispatcher) :
-  dispatcher(dispatcher),
-  quit(false),
-  currentEpoch(0),
-  currentFrame(0),
-  currentFile(0),
-  currentFileFrameCount(0),
-  currentFileName(""),
-  progress(0),
-  fileCount(0),
-  modelLoaded(false),
-  doneTraining(false),
-  trainThread(train_thread_routine, std::ref(*this), modelDir, trainingDataDir,
-    epochs, batchSize, frameWidth, frameHeight)
-{
-
 }

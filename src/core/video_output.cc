@@ -2,10 +2,13 @@
 
 ssbml::video_output::~video_output()
 {
+  char errBuf[1024];
   int ret = 0;
+
   if ((ret = avcodec_send_frame(cctx, NULL)) < 0)
   {
-    std::cerr << "Error occured when flushing the codec" << std::endl;
+    av_strerror(ret, errBuf, sizeof(errBuf));
+    std::cerr << "avcodec_send_frame(): " << errBuf << std::endl;
   }
   while (true)
   {
@@ -14,18 +17,21 @@ ssbml::video_output::~video_output()
     {
       if (ret != AVERROR_EOF)
       {
-        std::cerr << "Error occured while writing packet" << std::endl;
+        av_strerror(ret, errBuf, sizeof(errBuf));
+        std::cerr << "avcodec_receive_packet(): " << errBuf << std::endl;
       }
       break;
     }
     av_packet_rescale_ts(pkt, cctx->time_base, stream->time_base);
     pkt->stream_index = stream->index;
     ret = av_interleaved_write_frame(fctx, pkt);
-    if (av_interleaved_write_frame(fctx, pkt) < 0)
+    if (ret < 0)
     {
-      std::cerr << "Failed to write frame" << std::endl;
+      av_strerror(ret, errBuf, sizeof(errBuf));
+      std::cerr << "av_interleaved_write_frame(): " << errBuf << std::endl;
       break;
     }
+    av_packet_unref(pkt);
   }
 
   av_frame_free(&frame);
@@ -153,11 +159,11 @@ ssbml::video_output::video_output(std::string fileName, uint64_t width,
 
 void ssbml::video_output::write_frame()
 {
+  char errBuf[1024];
   int ret;
     frame->pts = nextPts++;
   if ((ret = avcodec_send_frame(cctx, frame)) < 0)
   {
-    char errBuf[1024];
     av_strerror(ret, errBuf, sizeof(errBuf));
     throw std::runtime_error("avcodec_send_frame: " + std::string(errBuf));
   }
@@ -170,22 +176,18 @@ void ssbml::video_output::write_frame()
     }
     if (ret < 0)
     {
-      char errBuf[1024];
       av_strerror(ret, errBuf, sizeof(errBuf));
       throw std::runtime_error("avcodec_receive_packet: "
         + std::string(errBuf));
     }
     av_packet_rescale_ts(pkt, cctx->time_base, stream->time_base);
     pkt->stream_index = stream->index;
-
     if (av_interleaved_write_frame(fctx, pkt) < 0)
     {
-      char errBuf[1024];
       av_strerror(ret, errBuf, sizeof(errBuf));
       throw std::runtime_error("av_interleaved_write_frame: "
         + std::string(errBuf));
     }
-
     av_packet_unref(pkt);
   }
 }

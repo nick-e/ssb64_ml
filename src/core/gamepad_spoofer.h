@@ -23,7 +23,7 @@ namespace ssbml
     gamepad_spoofer& operator<<(const gamepad &g);
 
     void update(const gamepad &g);
-    void decompress(const compressed &c);
+    void update(const compressed &c) override;
 
   private:
     int uinput;

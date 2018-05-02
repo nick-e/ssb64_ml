@@ -6,21 +6,22 @@
 #include <stdexcept>
 
 #include "gamepad.h"
+#include "gamepad_listener.h"
 
 namespace ssbml
 {
   class gamepad_file : public gamepad
   {
   public:
-    gamepad_file(std::string fileName);
-    ~gamepad_file();
+    void get_next();
+    void get_next(compressed &c);
+    void rewind();
 
     gamepad_file& operator>>(compressed &c);
     gamepad_file& operator>>(uint8_t *buf);
 
-    void get_next();
-    void get_next2(compressed &c);
-    void rewind();
+    gamepad_file(std::string fileName);
+    ~gamepad_file();
 
   private:
     std::ifstream stream;

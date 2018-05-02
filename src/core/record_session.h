@@ -29,25 +29,33 @@ namespace ssbml
   class record_session
   {
   public:
+    void get_record_info(bool *recording, unsigned long *totalTime,
+      std::string &filePrefix);
+
     record_session(Display *display, Window window, uint64_t frameWidth,
       uint64_t frameHeight, double fps, std::string gamepadDeviceFileName,
       std::string dstDir, Glib::Dispatcher &dispatcher);
     ~record_session();
 
-    void set_record_info(bool recording, unsigned long totalTime,
-      std::string filePrefix);
-    void get_record_info(bool *recording, unsigned long *totalTime,
-      std::string &filePrefix);
-    bool get_quit();
-
   protected:
     Glib::Dispatcher &dispatcher;
-    std::atomic<bool> quit;
     bool recording;
+    double fps;
+    uint64_t frameHeight;
+    uint64_t frameWidth;
     unsigned long totalTime;
+    std::atomic<bool> quit;
+    std::string dstDir;
     std::string filePrefix;
+    std::string gamepadDeviceFileName;
+    ::Window window;
+    Display *display;
     std::mutex m;
     std::thread recordThread;
+
+    void set_record_info(bool recording, unsigned long totalTime,
+      std::string filePrefix);
+    static void record_thread_routine(record_session &recordSession);
   };
 }
 

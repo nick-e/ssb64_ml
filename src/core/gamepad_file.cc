@@ -12,27 +12,27 @@ void ssbml::gamepad_file::get_next()
   {
     throw std::runtime_error("Failed to read gamepad file");
   }
-  decompress(c);
+  update(c);
 }
 
-ssbml::gamepad_file& ssbml::gamepad_file::operator>>(compressed &c)
-{
-  get_next2(c);
-  return *this;
-}
-
-ssbml::gamepad_file& ssbml::gamepad_file::operator>>(uint8_t *buf)
-{
-  get_next2(*((compressed*)(buf)));
-  return *this;
-}
-
-void ssbml::gamepad_file::get_next2(compressed &c)
+void ssbml::gamepad_file::get_next(compressed &c)
 {
   if (!stream.read((char*)&c, sizeof(c)))
   {
     throw std::runtime_error("Failed to read gamepad file");
   }
+}
+
+ssbml::gamepad_file& ssbml::gamepad_file::operator>>(compressed &c)
+{
+  get_next(c);
+  return *this;
+}
+
+ssbml::gamepad_file& ssbml::gamepad_file::operator>>(uint8_t *buf)
+{
+  get_next(*((compressed*)(buf)));
+  return *this;
 }
 
 ssbml::gamepad_file::gamepad_file(std::string fileName) :

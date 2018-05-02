@@ -29,11 +29,17 @@ namespace ssbml
     buttons buttons;
     analogs analogs;
 
-    void compress(compressed &c);
-    void decompress(const compressed &c);
+    virtual void compress(compressed &c);
+    virtual void update(const compressed &c);
+
+    gamepad& operator<<(const compressed &c);
+    gamepad& operator>>(compressed &c);
+    gamepad& operator=(const gamepad &other);
 
     gamepad();
+    gamepad(const gamepad& other);
     gamepad(const compressed &c);
+    virtual ~gamepad();
   };
 }
 

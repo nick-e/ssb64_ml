@@ -2,7 +2,7 @@
 
 ssbml::gamepad_spoofer& ssbml::gamepad_spoofer::operator<<(const compressed &c)
 {
-    decompress(c);
+    update(c);
     return *this;
 }
 
@@ -12,7 +12,7 @@ ssbml::gamepad_spoofer& ssbml::gamepad_spoofer::operator<<(const gamepad &g)
     return *this;
 }
 
-void ssbml::gamepad_spoofer::decompress(const compressed &c)
+void ssbml::gamepad_spoofer::update(const compressed &c)
 {
   gamepad g(c);
   update(g);
