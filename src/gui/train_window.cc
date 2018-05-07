@@ -1,37 +1,69 @@
 #include "train_window.h"
 
-ssbml::gui::train_window::train_window(std::string modelDir,
-  std::string trainingDataDir, uint64_t epochs, uint64_t batchSize) :
-  modelLabel("Loading model..."),
+ssbml::gui::train_window::train_window(bool suspendOnCompletion,
+  uint64_t batchSize, uint64_t totalEpochs, std::string metaFile,
+  std::string trainingDataDir) :
   epochLabel(""),
-  fileLabel(""),
-  frameLabel(""),
+  totalBox(Gtk::ORIENTATION_VERTICAL, 10),
   fileNameLabel(""),
+  fileLabel(""),
+  epochBox(Gtk::ORIENTATION_VERTICAL, 10),
+  frameLabel(""),
+  fileBox(Gtk::ORIENTATION_VERTICAL, 10),
+  ttLabel("Elapsed Time:\t"),
+  ttBox(Gtk::ORIENTATION_HORIZONTAL, 10),
+  etaLabel("ETA:\t"),
+  etaBox(Gtk::ORIENTATION_HORIZONTAL, 10),
+  modelLabel("Loading model..."),
+  modelBox(Gtk::ORIENTATION_VERTICAL, 10),
   infoBox(Gtk::ORIENTATION_VERTICAL, 10),
   box(Gtk::ORIENTATION_VERTICAL, 10),
-  epochs(epochs),
+  totalEpochs(totalEpochs),
   batchSize(batchSize),
-  trainSession(modelDir, trainingDataDir, epochs, batchSize, 256, 144,
-    dispatcher)
+  trainSession(metaFile, trainingDataDir, totalEpochs, batchSize, 256, 144,
+    suspendOnCompletion, dispatcher)
 {
   set_title("Train Session");
   set_border_width(20);
   set_default_size(600, 300);
   set_modal(true);
 
-  progressBar.set_valign(Gtk::ALIGN_START);
-  box.add(progressBar);
+  modelLabel.set_halign(Gtk::ALIGN_CENTER);
+  modelBox.add(modelLabel);
+  modelProgressBar.set_pulse_step(0.1);
+  modelBox.add(modelProgressBar);
+  box.add(modelBox);
 
-  box.add(modelLabel);
+  epochLabel.set_halign(Gtk::ALIGN_START);
+  totalBox.add(epochLabel);
+  totalProgressBar.set_valign(Gtk::ALIGN_START);
+  totalBox.add(totalProgressBar);
+  infoBox.add(totalBox);
 
   fileNameLabel.set_halign(Gtk::ALIGN_START);
-  infoBox.add(fileNameLabel);
-  frameLabel.set_halign(Gtk::ALIGN_START);
-  infoBox.add(frameLabel);
+  epochBox.add(fileNameLabel);
   fileLabel.set_halign(Gtk::ALIGN_START);
-  infoBox.add(fileLabel);
-  epochLabel.set_halign(Gtk::ALIGN_START);
-  infoBox.add(epochLabel);
+  epochBox.add(fileLabel);
+  epochProgressBar.set_valign(Gtk::ALIGN_START);
+  epochBox.add(epochProgressBar);
+  infoBox.add(epochBox);
+
+  frameLabel.set_halign(Gtk::ALIGN_START);
+  fileBox.add(frameLabel);
+  fileProgressBar.set_valign(Gtk::ALIGN_START);
+  fileBox.add(fileProgressBar);
+  infoBox.add(fileBox);
+
+  ttLabel.set_halign(Gtk::ALIGN_START);
+  ttBox.add(ttLabel);
+  ttBox.add(ttLabel2);
+  infoBox.add(ttBox);
+
+  etaLabel.set_halign(Gtk::ALIGN_START);
+  etaBox.add(etaLabel);
+  etaBox.add(etaLabel2);
+  infoBox.add(etaBox);
+
   infoBox.set_visible(false);
   box.add(infoBox);
 
@@ -44,52 +76,48 @@ ssbml::gui::train_window::train_window(std::string modelDir,
 
 void ssbml::gui::train_window::get_train_info()
 {
-  bool modelLoaded;
-  uint64_t currentEpoch;
-  uint64_t currentFile;
-  uint64_t currentFrame;
-  uint64_t currentFileFrameCount;
-  std::string currentFileName;
-  double progress;
-  uint64_t fileCount;
-  bool doneTraining;
+  struct train_session::info info;
+  trainSession.get_info(info);
 
-  trainSession.get_train_info(&modelLoaded, &currentEpoch, &currentFile,
-    &currentFileFrameCount, currentFileName, &currentFrame, &progress,
-    &fileCount, &doneTraining);
-  if (modelLoaded)
+  if (info.modelLoaded)
   {
-    progressBar.set_fraction(progress);
-    if (doneTraining)
+    totalProgressBar.set_fraction(info.totalProgress);
+    epochProgressBar.set_fraction(info.epochProgress);
+    fileProgressBar.set_fraction(info.fileProgress);
+    if (info.trainingCompleted)
     {
-      modelLabel.set_visible(true);
+      modelBox.set_visible(true);
       infoBox.set_visible(false);
+      modelProgressBar.set_fraction(1.0);
       modelLabel.set_text("Training completed");
     }
-    else if (progress == 1.0)
+    else if (info.totalProgress == 1.0)
     {
-      modelLabel.set_visible(true);
+      modelBox.set_visible(true);
       infoBox.set_visible(false);
       modelLabel.set_text("Saving model...");
+      modelProgressBar.pulse();
     }
     else
     {
-      modelLabel.set_visible(false);
+      modelBox.set_visible(false);
       infoBox.set_visible(true);
 
-      fileNameLabel.set_text("Current File:\t" + currentFileName);
-      epochLabel.set_text("Epoch:\t\t\t" + std::to_string(currentEpoch) + " / "
-        + std::to_string(epochs));
-      fileLabel.set_text("File:\t\t\t" + std::to_string(currentFile) + " / "
-        + std::to_string(fileCount));
-      frameLabel.set_text("Frames:\t\t" + std::to_string(currentFrame) + " / "
-        + std::to_string(currentFileFrameCount));
+      fileNameLabel.set_text("Current File:\t" + info.currentFileName);
+      epochLabel.set_text("Epoch:\t\t\t" + std::to_string(info.currentEpoch)
+        + "\t/\t" + std::to_string(totalEpochs));
+      fileLabel.set_text("File:\t\t\t" + std::to_string(info.currentFileIndex)
+        + "\t/\t" + std::to_string(info.totalFiles));
+      frameLabel.set_text("Frames:\t\t" + std::to_string(info.currentFrame)
+        + "\t/\t" + std::to_string(info.currentFileFrameCount));
+      ttLabel2.set_text(time_to_string(info.timeTaken));
+      etaLabel2.set_text(time_to_string(info.eta));
     }
   }
   else
   {
-    modelLabel.set_visible(true);
+    modelBox.set_visible(true);
     infoBox.set_visible(false);
-    progressBar.pulse();
+    modelProgressBar.pulse();
   }
 }

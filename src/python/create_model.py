@@ -11,6 +11,8 @@ def main():
 	dst = sys.argv[1]
 	imageWidth = int(sys.argv[2])
 	imageHeight = int(sys.argv[3])
+	print(imageWidth)
+	print(imageHeight)
 
 	videoInput, gamepadInput, gamepadButtonOutput, gamepadAnalogOutput, \
 		gamepadButtonLabel, gamepadAnalogLabel, optimizer, loss \

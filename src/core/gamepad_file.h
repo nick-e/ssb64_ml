@@ -4,6 +4,7 @@
 #include <fstream>
 #include <string>
 #include <stdexcept>
+#include <string.h>
 
 #include "gamepad.h"
 #include "gamepad_listener.h"

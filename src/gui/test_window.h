@@ -7,6 +7,7 @@
 
 #include "../core/gamepad_spoofer.h"
 #include "../core/test_session.h"
+#include "gamepad_visualizer.h"
 
 namespace ssbml
 {
@@ -16,7 +17,9 @@ namespace ssbml
     {
     public:
       Gtk::Label label;
+      Gtk::Box box;
       Glib::Dispatcher dispatcher;
+      gamepad_visualizer gamepadVisualizer;
 
       test_window(Display *display, ::Window window,
         uint64_t frameWidth, uint64_t frameHeight, double fps,

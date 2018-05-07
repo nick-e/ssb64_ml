@@ -2,7 +2,6 @@
 
 std::string ssbml::gui::gamepad_selector_popup::get_selected_gamepad()
 {
-
   Glib::RefPtr<Gtk::TreeSelection> refTreeSelection = treeView.get_selection();
   Gtk::TreeModel::iterator iter = refTreeSelection->get_selected();
   if (iter)
@@ -24,6 +23,7 @@ void ssbml::gui::gamepad_selector_popup::refresh()
     Gtk::TreeModel::Row row = *(refTreeModel->append());
     row[modelColumns.deviceFileName] = deviceFileName;
     row[modelColumns.deviceName] = gamepad_listener::get_device_name(deviceFileName);
+    row[modelColumns.index] = i;
   }
 }
 

@@ -4,6 +4,7 @@
 #include <gtkmm-3.0/gtkmm.h>
 
 #include "../core/train_session.h"
+#include "../core/util.h"
 
 namespace ssbml
 {
@@ -12,21 +13,41 @@ namespace ssbml
     class train_window : public Gtk::Window
     {
     public:
-      Gtk::ProgressBar progressBar;
-      Gtk::Label modelLabel;
       Gtk::Label epochLabel;
-      Gtk::Label fileLabel;
-      Gtk::Label frameLabel;
+      Gtk::ProgressBar totalProgressBar;
+      Gtk::Box totalBox;
+
       Gtk::Label fileNameLabel;
+      Gtk::Label fileLabel;
+      Gtk::ProgressBar epochProgressBar;
+      Gtk::Box epochBox;
+
+      Gtk::Label frameLabel;
+      Gtk::ProgressBar fileProgressBar;
+      Gtk::Box fileBox;
+
+      Gtk::Label ttLabel;
+      Gtk::Label ttLabel2;
+      Gtk::Box ttBox;
+
+      Gtk::Label etaLabel;
+      Gtk::Label etaLabel2;
+      Gtk::Box etaBox;
+
+      Gtk::Label modelLabel;
+      Gtk::ProgressBar modelProgressBar;
+      Gtk::Box modelBox;
+
       Gtk::Box infoBox;
       Gtk::Box box;
       Glib::Dispatcher dispatcher;
 
-      train_window(std::string modelDir, std::string trainingDataDir,
-        uint64_t epochs, uint64_t batchSize);
+      train_window(bool suspendOnCompletion, uint64_t batchSize,
+        uint64_t totalEpochs, std::string metaFile,
+        std::string trainingDataDir);
 
     protected:
-      uint64_t epochs;
+      uint64_t totalEpochs;
       uint64_t batchSize;
       train_session trainSession;
 

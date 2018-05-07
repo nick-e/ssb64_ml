@@ -1,5 +1,11 @@
 #include "threadsafe_gamepad.h"
 
+std::string ssbml::threadsafe_gamepad::to_string()
+{
+  std::lock_guard<std::mutex> lock(m);
+  return gamepad::to_string();
+}
+
 void ssbml::threadsafe_gamepad::compress(compressed &c)
 {
   std::lock_guard<std::mutex> lock(m);
@@ -43,7 +49,14 @@ ssbml::threadsafe_gamepad::~threadsafe_gamepad()
 
 }
 
-ssbml::threadsafe_gamepad& ssbml::threadsafe_gamepad::operator=(threadsafe_gamepad &other)
+ssbml::threadsafe_gamepad& ssbml::threadsafe_gamepad::operator>>(compressed &c)
+{
+  compress(c);
+  return *this;
+}
+
+ssbml::threadsafe_gamepad& ssbml::threadsafe_gamepad::operator=(
+  threadsafe_gamepad &other)
 {
   if (this != &other)
   {
@@ -54,7 +67,8 @@ ssbml::threadsafe_gamepad& ssbml::threadsafe_gamepad::operator=(threadsafe_gamep
   return *this;
 }
 
-ssbml::threadsafe_gamepad& ssbml::threadsafe_gamepad::operator=(const gamepad &other)
+ssbml::threadsafe_gamepad& ssbml::threadsafe_gamepad::operator=(
+  const gamepad &other)
 {
   if (this != &other)
   {

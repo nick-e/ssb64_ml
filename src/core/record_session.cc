@@ -2,13 +2,10 @@
 
 static std::string create_record_name(std::string destinationFolder);
 
-void ssbml::record_session::get_record_info(bool *recording,
-  unsigned long *totalTime, std::string &filePrefix)
+void ssbml::record_session::get_info(struct info &info)
 {
   std::lock_guard<std::mutex> lock(m);
-  *recording = this->recording;
-  *totalTime = this->totalTime;
-  filePrefix = this->filePrefix;
+  info = this->info;
 }
 
 ssbml::record_session::record_session(Display *display, Window window,
@@ -16,17 +13,18 @@ ssbml::record_session::record_session(Display *display, Window window,
   std::string gamepadDeviceFileName, std::string dstDir,
   Glib::Dispatcher &dispatcher) :
   dispatcher(dispatcher),
-  recording(false),
   fps(fps),
   frameHeight(frameHeight),
   frameWidth(frameWidth),
-  totalTime(0),
   quit(false),
   dstDir(dstDir),
-  filePrefix(),
   gamepadDeviceFileName(gamepadDeviceFileName),
   window(window),
   display(display),
+  info({
+    .recording = false,
+    .totalTime = 0
+  }),
   recordThread(record_thread_routine, std::ref(*this))
 {
 
@@ -38,13 +36,10 @@ ssbml::record_session::~record_session()
   recordThread.join();
 }
 
-void ssbml::record_session::set_record_info(bool recording,
-  unsigned long totalTime, std::string filePrefix)
+void ssbml::record_session::set_info(const struct info &info)
 {
   std::unique_lock<std::mutex> lock(m);
-  this->recording = recording;
-  this->totalTime = totalTime;
-  this->filePrefix = filePrefix;
+  this->info = info;
   dispatcher.emit();
 }
 
@@ -63,19 +58,22 @@ void ssbml::record_session::record_thread_routine(
     recordSession.frameWidth, recordSession.frameHeight);
   ssbml::gamepad_listener gamepadListener(recordSession.gamepadDeviceFileName);
   ssbml::video_output *vo = nullptr;
-  bool recording = false;
   bool recordButtonReleased = true;
   std::ofstream gamepadFile;
-  std::string filePrefix;
+  struct info info =
+  {
+    .recording = false,
+    .totalTime = 0
+  };
 
   double microsecondsBetweenFrames = 1000000.0 / recordSession.fps;
   ssbml::timer t;
 
   while (!recordSession.quit)
   {
-    if (recording)
+    if (info.recording)
     {
-      recordSession.set_record_info(recording, t.total_time(), filePrefix);
+      info.totalTime = t.total_time();
       gamepadFile << gamepadListener;
       videoInput >> *vo;
     }
@@ -85,14 +83,14 @@ void ssbml::record_session::record_thread_routine(
       if (recordButtonReleased)
       {
         recordButtonReleased = false;
-        recording = !recording;
-        if (recording)
+        info.recording = !info.recording;
+        if (info.recording)
         {
-          filePrefix = create_record_name(recordSession.dstDir);
-          vo = new ssbml::video_output(filePrefix + ".mp4",
+          info.filePrefix = create_record_name(recordSession.dstDir);
+          vo = new ssbml::video_output(info.filePrefix + ".mp4",
             recordSession.frameWidth, recordSession.frameHeight,
             recordSession.fps);
-          gamepadFile = std::ofstream((filePrefix + ".gamepad").c_str(),
+          gamepadFile = std::ofstream((info.filePrefix + ".gamepad").c_str(),
             std::ofstream::binary);
           t.reset();
         }
@@ -100,7 +98,8 @@ void ssbml::record_session::record_thread_routine(
         {
           gamepadFile.close();
           delete vo;
-          recordSession.set_record_info(recording, 0, "");
+          info.totalTime = 0;
+          info.filePrefix = "";
         }
       }
     }
@@ -109,11 +108,8 @@ void ssbml::record_session::record_thread_routine(
       recordButtonReleased = true;
     }
 
-    unsigned long deltaTime = t.get_delta_time();
-    if (deltaTime < microsecondsBetweenFrames)
-    {
-      usleep(microsecondsBetweenFrames - deltaTime);
-      deltaTime += t.get_delta_time();
-    }
+    gamepadListener >> info.c;
+    recordSession.set_info(info);
+    t.get_delta_time(microsecondsBetweenFrames);
   }
 }

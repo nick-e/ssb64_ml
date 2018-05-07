@@ -2,17 +2,19 @@
 
 void ssbml::gui::test_window::get_test_info()
 {
-  bool testing;
-  bool modelLoaded;
+  struct test_session::info info;
 
-  testSession.get_test_info(&testing, &modelLoaded);
-  if (modelLoaded)
+  testSession.get_info(info);
+  gamepadVisualizer << info.c;
+  if (info.modelLoaded)
   {
-    label.set_text(testing ? "TESTING" : "NOT TESTING");
+    label.set_text(info.testing ? "TESTING" : "NOT TESTING");
+    gamepadVisualizer.set_visible(true);
   }
   else
   {
     label.set_text("Loading model...");
+    gamepadVisualizer.set_visible(false);
   }
 }
 
@@ -21,6 +23,8 @@ ssbml::gui::test_window::test_window(Display *display, ::Window window,
   std::string gamepadDeviceFileName, std::string modelMeta,
   gamepad_spoofer &gamepadSpoofer) :
   label("Loading model..."),
+  box(Gtk::ORIENTATION_VERTICAL, 10),
+  gamepadVisualizer(256),
   testSession(display, window, frameWidth, frameHeight, fps,
     gamepadDeviceFileName, modelMeta, gamepadSpoofer, dispatcher)
 {
@@ -29,7 +33,10 @@ ssbml::gui::test_window::test_window(Display *display, ::Window window,
   set_default_size(600, 300);
   set_modal(true);
 
-  add(label);
+  box.add(label);
+  gamepadVisualizer.set_halign(Gtk::ALIGN_CENTER);
+  box.add(gamepadVisualizer);
+  add(box);
 
   dispatcher.connect(sigc::mem_fun(*this, &test_window::get_test_info));
 

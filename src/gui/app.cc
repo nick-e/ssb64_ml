@@ -20,6 +20,7 @@ int main(int argc, char *argv[])
 {
   av_register_all();
   av_log_set_level(AV_LOG_QUIET);
+
   auto app = Gtk::Application::create(argc, argv, "com.nickscotteaton.ssbml");
   ssbml::gui::app ssbmlApp;
 

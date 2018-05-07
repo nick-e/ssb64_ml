@@ -14,6 +14,8 @@
 #include <fcntl.h>
 #include <iomanip>
 #include <errno.h>
+#include <cstdlib>
+#include <stdio.h>
 
 #include <gtkmm-3.0/gtkmm.h>
 
@@ -21,61 +23,66 @@
 #include "timer.h"
 #include "util.h"
 #include "gamepad_file.h"
+#include "child_program.h"
 
 namespace ssbml
 {
   class train_session
   {
   public:
-    enum class Py2CC_Flag
+    struct info
     {
-      ModelLoaded = 0x41,
-      BatchTrained = 0x17,
-      ModelSaved = 0x99
+      bool modelLoaded;
+      bool trainingCompleted;
+      double fileProgress;
+      double epochProgress;
+      double totalProgress;
+      uint64_t currentEpoch;
+      uint64_t currentFileFrameCount;
+      uint64_t currentFileIndex;
+      uint64_t currentFrame;
+      uint64_t totalFiles;
+      unsigned long eta;
+      unsigned long timeTaken;
+      std::string currentFileName;
     };
 
-    enum class CC2Py_Flag
+    enum class from_child_flag
     {
-      Batch = 0x33,
-      Done = 0x80
+      train_batch_request_ack = 0x02,
+      save_model_request_ack = 0x03,
     };
 
-    void get_train_info(bool *modelLoaded, uint64_t *currentEpoch,
-      uint64_t *currentFileIndex, uint64_t *currentFileFrameCount,
-      std::string &currentFileName, uint64_t *currentFrame, double *progress,
-      uint64_t *totalFiles, bool *trainingCompleted);
+    enum class to_child_flag
+    {
+      train_batch_request = 0x02,
+      save_model_request = 0x03,
+    };
+
+    void get_info(struct info &info);
     static void create_model(std::string dstDir);
 
-    train_session(std::string modelDir, std::string trainingDataDir,
+    train_session(std::string metaFile, std::string trainingDataDir,
       uint64_t totalEpochs, uint64_t batchSize, uint64_t frameWidth,
-      uint64_t frameHeight, Glib::Dispatcher &dispatcher);
+      uint64_t frameHeight, bool suspendOnCompletion,
+      Glib::Dispatcher &dispatcher);
     ~train_session();
 
   private:
     Glib::Dispatcher &dispatcher;
-    bool modelLoaded;
-    bool trainingCompleted;
-    double progress;
+    bool suspendOnCompletion;
     uint64_t batchSize;
-    uint64_t currentEpoch;
-    uint64_t currentFileIndex;
-    uint64_t currentFileFrameCount;
-    uint64_t currentFrame;
     uint64_t frameHeight;
     uint64_t frameWidth;
     uint64_t totalEpochs;
-    uint64_t totalFiles;
-    std::string currentFileName;
-    std::string modelDir;
+    info info;
+    std::string metaFile;
     std::string trainingDataDir;
     std::atomic<bool> quit;
     std::mutex m;
     std::thread trainThread;
 
-    void set_train_info(bool modelLoaded, uint64_t currentEpoch,
-      uint64_t currentFileIndex, uint64_t currentFileFrameCount,
-      std::string currentFileName, uint64_t currentFrame, double progress,
-      uint64_t totalFiles, bool trainingCompleted);
+    void set_info(const struct info &info);
     static void train_thread_routine(train_session &trainSession);
   };
 }

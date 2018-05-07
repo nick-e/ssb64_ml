@@ -31,25 +31,22 @@ ssbml::video_file::video_file(std::string fileName) : nextFrame(0), fctx(NULL),
 
   av_dump_format(fctx, 0, fileName.c_str(), 0);
 
-  bool foundVideoStream = false;
-  uint64_t videoStreamIndex = 0;
+  AVStream *stream = nullptr;
   for (uint64_t i = 0; i < fctx->nb_streams; ++i)
   {
     if (fctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
     {
-      videoStreamIndex = i;
-      foundVideoStream = true;
+      stream = fctx->streams[i];
       break;
     }
   }
-  if (!foundVideoStream)
+  if (stream == nullptr)
   {
     avformat_close_input(&fctx);
     avcodec_close(cctx);
     throw std::runtime_error("File does not contain a video stream");
   }
-  if ((codec = avcodec_find_decoder(
-    fctx->streams[videoStreamIndex]->codecpar->codec_id)) == NULL)
+  if ((codec = avcodec_find_decoder(stream->codecpar->codec_id)) == NULL)
   {
     avformat_close_input(&fctx);
     throw std::runtime_error("File uses unsupported codec");
@@ -59,16 +56,15 @@ ssbml::video_file::video_file(std::string fileName) : nextFrame(0), fctx(NULL),
     avformat_close_input(&fctx);
     throw std::runtime_error("Failed to allocate AVCodecContext");
   }
-  if (avcodec_parameters_to_context(cctx,
-    fctx->streams[videoStreamIndex]->codecpar) < 0)
+  if (avcodec_parameters_to_context(cctx, stream->codecpar) < 0)
   {
     avformat_close_input(&fctx);
     throw std::runtime_error("Failed to convert codec parameters to a " \
       "codec context");
   }
-  totalFrames = (fctx->duration
-    * fctx->streams[videoStreamIndex]->avg_frame_rate.num)
-    / (fctx->streams[videoStreamIndex]->avg_frame_rate.den * 1000000);
+  uint64_t fps = stream->avg_frame_rate.num / stream->avg_frame_rate.den;
+  totalFrames = (fctx->duration * fps) / 1000000;
+
   if (avcodec_open2(cctx, codec, NULL) < 0)
   {
     avcodec_close(cctx);

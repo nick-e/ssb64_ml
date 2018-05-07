@@ -2,20 +2,32 @@
 
 ssbml::gamepad_spoofer& ssbml::gamepad_spoofer::operator<<(const compressed &c)
 {
-    update(c);
-    return *this;
+  update(c);
+  return *this;
 }
 
 ssbml::gamepad_spoofer& ssbml::gamepad_spoofer::operator<<(const gamepad &g)
 {
-    update(g);
-    return *this;
+  update(g);
+  return *this;
+}
+
+ssbml::gamepad_spoofer& ssbml::gamepad_spoofer::operator<<(threadsafe_gamepad &g)
+{
+  update(g);
+  return *this;
 }
 
 void ssbml::gamepad_spoofer::update(const compressed &c)
 {
   gamepad g(c);
   update(g);
+}
+
+void ssbml::gamepad_spoofer::update(threadsafe_gamepad &g)
+{
+  std::lock_guard<std::mutex> lock(g.m);
+  update((gamepad)g);
 }
 
 void ssbml::gamepad_spoofer::update(const gamepad &g)
@@ -55,7 +67,7 @@ void ssbml::gamepad_spoofer::update(const gamepad &g)
   {
     this->buttons.x = g.buttons.x;
     ie.type = EV_KEY;
-    ie.code = BTN_A;
+    ie.code = BTN_X;
     ie.value = this->buttons.x;
     if (write(uinput, &ie, sizeof(ie)) < 0)
     {
@@ -70,7 +82,7 @@ void ssbml::gamepad_spoofer::update(const gamepad &g)
   {
     this->buttons.y = g.buttons.y;
     ie.type = EV_KEY;
-    ie.code = BTN_A;
+    ie.code = BTN_Y;
     ie.value = this->buttons.y;
     if (write(uinput, &ie, sizeof(ie)) < 0)
     {
@@ -85,7 +97,7 @@ void ssbml::gamepad_spoofer::update(const gamepad &g)
   {
     this->buttons.tr = g.buttons.tr;
     ie.type = EV_KEY;
-    ie.code = BTN_A;
+    ie.code = BTN_TR;
     ie.value = this->buttons.tr;
     if (write(uinput, &ie, sizeof(ie)) < 0)
     {
@@ -100,7 +112,7 @@ void ssbml::gamepad_spoofer::update(const gamepad &g)
   {
     this->buttons.tl = g.buttons.tl;
     ie.type = EV_KEY;
-    ie.code = BTN_A;
+    ie.code = BTN_TL;
     ie.value = this->buttons.tl;
     if (write(uinput, &ie, sizeof(ie)) < 0)
     {
@@ -115,7 +127,7 @@ void ssbml::gamepad_spoofer::update(const gamepad &g)
   {
     this->buttons.thumbr = g.buttons.thumbr;
     ie.type = EV_KEY;
-    ie.code = BTN_A;
+    ie.code = BTN_THUMBR;
     ie.value = this->buttons.thumbr;
     if (write(uinput, &ie, sizeof(ie)) < 0)
     {
@@ -130,7 +142,7 @@ void ssbml::gamepad_spoofer::update(const gamepad &g)
   {
     this->buttons.thumbl = g.buttons.thumbl;
     ie.type = EV_KEY;
-    ie.code = BTN_A;
+    ie.code = BTN_THUMBL;
     ie.value = this->buttons.thumbl;
     if (write(uinput, &ie, sizeof(ie)) < 0)
     {
@@ -145,7 +157,7 @@ void ssbml::gamepad_spoofer::update(const gamepad &g)
   {
     this->buttons.select = g.buttons.select;
     ie.type = EV_KEY;
-    ie.code = BTN_A;
+    ie.code = BTN_SELECT;
     ie.value = this->buttons.select;
     if (write(uinput, &ie, sizeof(ie)) < 0)
     {
@@ -160,7 +172,7 @@ void ssbml::gamepad_spoofer::update(const gamepad &g)
   {
     this->buttons.start = g.buttons.start;
     ie.type = EV_KEY;
-    ie.code = BTN_A;
+    ie.code = BTN_START;
     ie.value = this->buttons.start;
     if (write(uinput, &ie, sizeof(ie)) < 0)
     {
@@ -175,7 +187,7 @@ void ssbml::gamepad_spoofer::update(const gamepad &g)
   {
     this->buttons.mode = g.buttons.mode;
     ie.type = EV_KEY;
-    ie.code = BTN_A;
+    ie.code = BTN_MODE;
     ie.value = this->buttons.mode;
     if (write(uinput, &ie, sizeof(ie)) < 0)
     {

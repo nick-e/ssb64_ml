@@ -72,6 +72,4 @@ ssbml::gui::record_page::record_page(Gtk::Window &mainWindow) :
   startButton.signal_clicked().connect(sigc::mem_fun(*this,
     &record_page::on_startButton_clicked));
   pack_end(startButton);
-
-  show_all_children();
 }

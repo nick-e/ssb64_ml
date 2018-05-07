@@ -126,12 +126,12 @@ def save_model(sess, dst):
 	saver.save(dst, sess)
 
 def load_model(src, imageWidth, imageHeight):
-    videoInput, gamepadInput, gamepadButtonOutput, gamepadAnalogOutput, \
+	videoInput, gamepadInput, gamepadButtonOutput, gamepadAnalogOutput, \
 		gamepadButtonLabel, gamepadAnalogLabel, optimizer, loss \
 		= create_model(imageWidth, imageHeight)
-    saver = tf.train.Saver()
-    sess = tf.Session()
-    saver.restore(sess, src)
-    return (sess, videoInput, gamepadInput, gamepadButtonOutput,
+	saver = tf.train.Saver()
+	sess = tf.Session()
+	saver.restore(sess, src)
+	return (sess, videoInput, gamepadInput, gamepadButtonOutput,
 		gamepadAnalogOutput, gamepadButtonLabel, gamepadAnalogLabel, optimizer,
 		loss)

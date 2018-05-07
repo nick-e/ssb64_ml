@@ -1,5 +1,5 @@
-#ifndef record_page_H
-#define record_page_H
+#ifndef RECORD_PAGE_H
+#define RECORD_PAGE_H
 
 #include <fstream>
 #include <string>
@@ -19,7 +19,7 @@ namespace ssbml
     public:
       record_page(Gtk::Window &mainWindow);
 
-    protected:
+    private:
       Gtk::Window &mainWindow;
       window_selector windowSelector;
       gamepad_selector gamepadSelector;
@@ -27,6 +27,7 @@ namespace ssbml
       Gtk::Box dd_box;
       Gtk::Label dd_label;
       Gtk::FileChooserButton dd_fileChooser;
+      Gtk::Box gl_box;
       record_window *recordWindow;
 
       void on_startButton_clicked();

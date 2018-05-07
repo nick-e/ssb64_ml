@@ -1,17 +1,20 @@
 import sys
+import struct
 from enum import Enum
+
+import numpy as np
 
 import model
 import data
+import child_program
 
-class Py2CC_Flag(Enum):
-    ModelLoaded = b'\x41'
-    BatchTrained = b'\x17'
-    ModelSaved = b'\x99'
+class from_child_flag(Enum):
+    train_batch_request_ack = b'\x02'
+    save_model_request_ack = b'\x03'
 
-class CC2Py_Flag(Enum):
-    Batch = b'\x33'
-    Done = b'\x80'
+class to_child_flag(Enum):
+    train_batch_request = b'\x02'
+    save_model_request = b'\x03'
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
@@ -19,6 +22,7 @@ def eprint(*args, **kwargs):
 def main():
     if len(sys.argv) != 5:
         eprint("Incorrect number of arguments")
+        child_program.terminate()
         return
 
     modelSrc = sys.argv[1]
@@ -30,21 +34,20 @@ def main():
         optimizer, loss \
         = model.load_model(modelSrc, frameWidth, frameHeight)
 
-    sys.stdout.buffer.write(Py2CC_Flag.ModelLoaded.value)
-    sys.stdout.flush()
-
+    child_program.send_init_flag()
     while True:
-        flag = sys.stdin.buffer.read(1)
-        if flag == CC2Py_Flag.Done.value:
-            model.save_model(modelSrc, sess)
-            sys.stdout.buffer.write(Py2CC_Flag.ModelSaved.value)
-            sys.stdout.flush()
+        flag = child_program.next_flag();
+        if flag == child_program.to_child_flag.shutdown_request.value:
             break
-        elif flag == CC2Py_Flag.Batch.value:
+        elif flag == to_child_flag.save_model_request.value:
+            model.save_model(modelSrc, sess)
+            child_program.write(from_child_flag.save_model_request_ack, None)
+            break
+        elif flag == to_child_flag.train_batch_request.value:
             videoInputBatch, gamepadInputBatch, gamepadButtonLabelBatch, \
                 gamepadAnalogLabelBatch \
                 = data.get_batch(batchSize, frameWidth, frameHeight)
-            _, v = sess.run(
+            _, lossValue = sess.run(
                 [optimizer, loss],
                 feed_dict =
                 {
@@ -54,13 +57,13 @@ def main():
                     gamepadAnalogLabel: gamepadAnalogLabelBatch
                 }
             )
-            eprint(v)
-            sys.stdout.buffer.write(Py2CC_Flag.BatchTrained.value)
-            sys.stdout.flush()
+            child_program.write(from_child_flag.train_batch_request_ack, \
+                bytearray(struct.pack("f", lossValue)))
         else:
             eprint("Received unkown flag ", flag)
             break
 
+    child_program.terminate()
 
 if __name__ == "__main__":
     main()

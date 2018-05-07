@@ -1,11 +1,14 @@
 CORE_DIR = ../src/core
 CORE_OBJS = \
+	child_program.o \
 	gamepad.o \
 	gamepad_file.o \
 	gamepad_listener.o \
 	gamepad_spoofer.o \
 	record_session.o \
+	shader.o \
 	test_session.o \
+	texture.o \
 	threadsafe_gamepad.o \
 	timer.o \
 	train_session.o \
@@ -19,6 +22,7 @@ GUI_OBJS = \
 	app.o \
 	gamepad_selector.o \
 	gamepad_selector_popup.o \
+	gamepad_visualizer.o \
 	record_page.o \
 	record_window.o \
 	test_page.o \
@@ -38,9 +42,12 @@ LIBS = \
 	-lavcodec \
 	-lavutil \
 	-lxcb \
+	-lGL \
+	-lGLEW \
+	-lGLU \
 	`pkg-config --libs gtkmm-3.0`
 
-INCL_DIRS = -I/opt/cuda/include
+INCL_DIRS = -I/opt/cuda/include -I../includes
 LFLAGS = -Wall -g
 CFLAGS = -Wall -c -g
 GTKMM_FLAGS = `pkg-config --cflags gtkmm-3.0`
@@ -49,6 +56,9 @@ CC = clang++
 
 all: $(CORE_OBJS) $(GUI_OBJS)
 	$(CC) $(LFLAGS) -o ssbml $(CORE_OBJS) $(GUI_OBJS) $(LIBS)
+
+child_program.o: $(CORE_DIR)/child_program.cc $(CORE_DIR)/child_program.h
+	$(CC) $(CFLAGS) $(CORE_DIR)/child_program.cc $(INCL_DIRS)
 
 gamepad.o: $(CORE_DIR)/gamepad.cc $(CORE_DIR)/gamepad.h
 	$(CC) $(CFLAGS) $(CORE_DIR)/gamepad.cc $(INCL_DIRS)
@@ -65,8 +75,14 @@ gamepad_spoofer.o: $(CORE_DIR)/gamepad_spoofer.cc $(CORE_DIR)/gamepad_spoofer.h
 record_session.o: $(CORE_DIR)/record_session.cc $(CORE_DIR)/record_session.h
 	$(CC) $(CFLAGS) $(CORE_DIR)/record_session.cc $(GTKMM_FLAGS) $(INCL_DIRS)
 
+shader.o: $(CORE_DIR)/shader.cc $(CORE_DIR)/shader.h
+	$(CC) $(CFLAGS) $(CORE_DIR)/shader.cc $(GTKMM_FLAGS) $(INCL_DIRS)
+
 test_session.o: $(CORE_DIR)/test_session.cc $(CORE_DIR)/test_session.h
 	$(CC) $(CFLAGS) $(CORE_DIR)/test_session.cc $(GTKMM_FLAGS) $(INCL_DIRS)
+
+texture.o: $(CORE_DIR)/texture.cc $(CORE_DIR)/texture.h
+	$(CC) $(CFLAGS) $(CORE_DIR)/texture.cc $(GTKMM_FLAGS) $(INCL_DIRS)
 
 threadsafe_gamepad.o: $(CORE_DIR)/threadsafe_gamepad.cc $(CORE_DIR)/threadsafe_gamepad.h
 	$(CC) $(CFLAGS) $(CORE_DIR)/threadsafe_gamepad.cc $(INCL_DIRS)
@@ -97,6 +113,9 @@ gamepad_selector.o: $(GUI_DIR)/gamepad_selector.cc $(GUI_DIR)/gamepad_selector.h
 
 gamepad_selector_popup.o: $(GUI_DIR)/gamepad_selector_popup.cc $(GUI_DIR)/gamepad_selector_popup.h
 	$(CC) $(CFLAGS) $(GUI_DIR)/gamepad_selector_popup.cc $(GTKMM_FLAGS) $(INCL_DIRS)
+
+gamepad_visualizer.o: $(GUI_DIR)/gamepad_visualizer.cc $(GUI_DIR)/gamepad_visualizer.h
+	$(CC) $(CFLAGS) $(GUI_DIR)/gamepad_visualizer.cc $(GTKMM_FLAGS) $(INCL_DIRS)
 
 record_page.o: $(GUI_DIR)/record_page.cc $(GUI_DIR)/record_page.h $(GUI_DIR)/app.h
 	$(CC) $(CFLAGS) $(GUI_DIR)/record_page.cc $(GTKMM_FLAGS) $(INCL_DIRS)

@@ -7,6 +7,7 @@
 #include <string>
 #include <iostream>
 #include <iomanip>
+#include <stdio.h>
 
 #include <gtkmm-3.0/gtkmm.h>
 #include <X11/X.h>
@@ -17,22 +18,30 @@
 #include "gamepad_spoofer.h"
 #include "timer.h"
 #include "util.h"
+#include "gamepad.h"
+#include "child_program.h"
 
 namespace ssbml
 {
   class test_session
   {
   public:
-    enum class Py2CC_Flag
+
+    enum class from_child_flag
     {
-      ModelLoaded = 0x41,
-      Output = 0x69
+      test_batch_request_ack = 0x02
     };
 
-    enum class CC2Py_Flag
+    enum class to_child_flag
     {
-      Data = 0x33,
-      Done = 0x80
+      test_batch_request = 0x02
+    };
+
+    struct info
+    {
+      bool testing;
+      bool modelLoaded;
+      gamepad::compressed c;
     };
 
     test_session(Display *display, Window window, uint64_t frameWidth,
@@ -41,17 +50,25 @@ namespace ssbml
       Glib::Dispatcher &dispatcher);
     ~test_session();
 
-    bool get_quit();
-    void set_test_info(bool testing, bool modelLoaded);
-    void get_test_info(bool *testing, bool *modelLoaded);
+    void set_info(const struct info &info);
+    void get_info(struct info &info);
 
-    protected:
-      Glib::Dispatcher &dispatcher;
-      std::atomic<bool> quit;
-      bool testing;
-      bool modelLoaded;
-      std::mutex m;
-      std::thread testThread;
+  private:
+    Glib::Dispatcher &dispatcher;
+    double fps;
+    uint64_t frameHeight;
+    uint64_t frameWidth;
+    std::atomic<bool> quit;
+    std::string gamepadDeviceFileName;
+    std::string modelMeta;
+    gamepad_spoofer &gamepadSpoofer;
+    Display *display;
+    ::Window window;
+    struct info info;
+    std::mutex m;
+    std::thread testThread;
+
+    static void test_thread_routine(test_session &testSession);
   };
 }
 

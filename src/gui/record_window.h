@@ -6,6 +6,7 @@
 #include <X11/Xlib.h>
 
 #include "../core/record_session.h"
+#include "gamepad_visualizer.h"
 
 namespace ssbml
 {
@@ -19,13 +20,14 @@ namespace ssbml
       Gtk::Label prefixLabel;
       Gtk::Box box;
       Glib::Dispatcher dispatcher;
+      gamepad_visualizer gamepadVisualizer;
 
       record_window(Display *display, ::Window window,
         std::string gamepadDeviceFileName, std::string dstFolder);
 
       protected:
         record_session recordSession;
-        
+
         void get_record_info();
     };
   }

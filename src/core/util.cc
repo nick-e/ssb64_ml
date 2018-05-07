@@ -35,8 +35,8 @@ int ssbml::launch_program(std::string file, char * const *args, int *readFd,
       perror("dup2(1)");
       exit(EXIT_FAILURE);
     }
-    close(pipefd1[1]);
-    close(pipefd2[0]);
+    //close(pipefd1[1]);
+    //close(pipefd2[0]);
     if (setvbuf(stdin, NULL, _IONBF, 0) < 0)
     {
       close(pipefd1[1]);
@@ -93,6 +93,33 @@ void ssbml::create_ppm(std::string path, uint8_t *rgbBuf,
   out.close();
 }
 
+void ssbml::create_ppm2(std::string path, uint8_t *rgbaBuf,
+  uint64_t width, uint64_t height)
+{
+  std::ofstream out(path);
+  if (!out)
+  {
+    throw std::runtime_error("Failed to open\"" + path + "\"");
+  }
+  out << "P3\n" << width << " " << height << "\n255\n";
+  for (uint64_t y = 0; y < height; ++y)
+  {
+    for (uint64_t x = 0; x < width; ++x)
+    {
+      uint64_t index = (y * width + x) * 4;
+      out << std::to_string(rgbaBuf[index]) << " "
+        << std::to_string(rgbaBuf[index + 1]) << " "
+        << std::to_string(rgbaBuf[index + 2]);
+      if (x != 255)
+      {
+        out << " ";
+      }
+    }
+    out << "\n";
+  }
+  out.close();
+}
+
 std::string ssbml::time_to_string(unsigned long time)
 {
   unsigned long x = time / 100000;
@@ -122,4 +149,13 @@ std::string ssbml::time_to_string(unsigned long time)
   str += std::to_string(seconds) + "." + std::to_string(dec);
 
   return str;
+}
+
+void ssbml::check_gl_error()
+{
+  GLenum err = glGetError();
+  if (err != GL_NO_ERROR)
+  {
+    throw std::runtime_error((char*)gluErrorString(err));
+  }
 }

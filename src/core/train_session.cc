@@ -1,40 +1,16 @@
 #include "train_session.h"
 
-void ssbml::train_session::set_train_info(bool modelLoaded,
-  uint64_t currentEpoch, uint64_t currentFileIndex,
-  uint64_t currentFileFrameCount, std::string currentFileName,
-  uint64_t currentFrame, double progress, uint64_t totalFiles,
-  bool trainingCompleted)
+void ssbml::train_session::set_info(const struct info &info)
 {
   std::unique_lock<std::mutex> lock(m);
-  this->currentEpoch = currentEpoch;
-  this->currentFileIndex = currentFileIndex;
-  this->currentFileFrameCount = currentFileFrameCount;
-  this->currentFileName = currentFileName;
-  this->currentFrame = currentFrame;
-  this->modelLoaded = modelLoaded;
-  this->progress = progress;
-  this->totalFiles = totalFiles;
-  this->trainingCompleted = trainingCompleted;
+  this->info = info;
   dispatcher.emit();
 }
 
-void ssbml::train_session::get_train_info(bool *modelLoaded,
-  uint64_t *currentEpoch, uint64_t *currentFileIndex,
-  uint64_t *currentFileFrameCount, std::string &currentFileName,
-  uint64_t *currentFrame, double *progress, uint64_t *totalFiles,
-  bool *trainingCompleted)
+void ssbml::train_session::get_info(struct info &info)
 {
   std::lock_guard<std::mutex> lock(m);
-  *currentEpoch = this->currentEpoch;
-  *currentFileIndex = this->currentFileIndex;
-  *currentFileFrameCount = this->currentFileFrameCount;
-  currentFileName = this->currentFileName;
-  *currentFrame = this->currentFrame;
-  *modelLoaded = this->modelLoaded;
-  *progress = this->progress;
-  *totalFiles = this->totalFiles;
-  *trainingCompleted = this->trainingCompleted;
+  info = this->info;
 }
 
 void ssbml::train_session::create_model(std::string dstDir)
@@ -77,7 +53,7 @@ static int get_training_file_names(std::string trainingFilesDir,
   struct dirent *entry;
   if (dir == NULL)
   {
-    perror("opendir");
+    perror(trainingFilesDir.c_str());
     return -1;
   }
   while ((entry = readdir(dir)) != NULL)
@@ -110,23 +86,19 @@ static int get_training_file_names(std::string trainingFilesDir,
   return 0;
 }
 
-ssbml::train_session::train_session(std::string modelDir,
+ssbml::train_session::train_session(std::string metaFile,
   std::string trainingDataDir, uint64_t totalEpochs, uint64_t batchSize,
-  uint64_t frameWidth, uint64_t frameHeight, Glib::Dispatcher &dispatcher) :
+  uint64_t frameWidth, uint64_t frameHeight, bool suspendOnCompletion,
+  Glib::Dispatcher &dispatcher) :
   dispatcher(dispatcher),
-  modelLoaded(false),
-  trainingCompleted(false),
-  progress(0.0),
+  suspendOnCompletion(suspendOnCompletion),
   batchSize(batchSize),
-  currentEpoch(0),
-  currentFileIndex(0),
-  currentFileFrameCount(0),
-  currentFrame(0),
   frameHeight(frameHeight),
   frameWidth(frameWidth),
   totalEpochs(totalEpochs),
-  totalFiles(0),
-  quit(true),
+  metaFile(metaFile),
+  trainingDataDir(trainingDataDir),
+  quit(false),
   trainThread(train_thread_routine, std::ref(*this))
 {
 
@@ -141,9 +113,11 @@ ssbml::train_session::~train_session()
 void ssbml::train_session::train_thread_routine(
   ssbml::train_session &trainSession)
 {
-  bool modelSaved = false;
-  int readFd;
-  int writeFd;
+  char tmp1[2048];
+  char tmp2[2048];
+  char tmp3[2048];
+  char tmp4[2048];
+  ssize_t received;
   uint8_t *buf;
   uint8_t *gamepadBuf;
   uint8_t *labelBuf;
@@ -151,241 +125,199 @@ void ssbml::train_session::train_thread_routine(
   uint64_t gamepadBufSize = sizeof(ssbml::gamepad::compressed);
   uint64_t rgbBufSize = trainSession.frameWidth * trainSession.frameHeight * 3;
   uint64_t bufSize = rgbBufSize + gamepadBufSize * 2;
-  uint64_t totalFiles = 0;
   uint64_t totalFrames = 0;
+  uint64_t totalFramesPerEpoch = 0;
   uint64_t trainedFrames = 0;
-  std::string modelDir;
+  std::string modelName = trainSession.metaFile.substr(0,
+    trainSession.metaFile.find_last_of("."));
   std::vector<std::string> trainingFiles;
   std::vector<char*> args;
-  ssbml::timer t;
+  timer timer;
+  struct info info =
+  {
+    .modelLoaded = false,
+    .trainingCompleted = false,
+    .fileProgress = 0.0,
+    .epochProgress = 0.0,
+    .totalProgress = 0.0,
+    .currentEpoch = 0,
+    .currentFileFrameCount = 0,
+    .currentFileIndex = 0,
+    .currentFrame = 0,
+    .totalFiles = 0,
+    .eta = 0,
+    .timeTaken = 0
+  };
 
+  trainSession.set_info(info);
   if (get_training_file_names(trainSession.trainingDataDir, trainingFiles,
-    &totalFrames) < 0)
+    &totalFramesPerEpoch) < 0)
   {
     return;
   }
-  totalFrames *= trainSession.totalEpochs;
-  trainSession.set_train_info(false, 0, 0, 0, "", 0, 0.0, 0, false);
+  totalFrames = totalFramesPerEpoch * trainSession.totalEpochs;
+  info.totalFiles = trainingFiles.size();
 
-  modelDir = trainSession.modelDir.substr(0,
-    trainSession.modelDir.find_last_of("."));
+  sprintf(tmp1, "%s", modelName.c_str());
+  sprintf(tmp2, "%s", std::to_string(trainSession.frameWidth).c_str());
+  sprintf(tmp3, "%s", std::to_string(trainSession.frameHeight).c_str());
+  sprintf(tmp4, "%s", std::to_string(trainSession.batchSize).c_str());
   args.push_back(const_cast<char*>("python"));
   args.push_back(const_cast<char*>("../src/python/train.py"));
-  args.push_back(const_cast<char*>(trainSession.modelDir.c_str()));
-  args.push_back(const_cast<char*>(std::to_string(trainSession.frameWidth).c_str()));
-  args.push_back(const_cast<char*>(std::to_string(trainSession.frameHeight).c_str()));
-  args.push_back(const_cast<char*>(std::to_string(trainSession.batchSize).c_str()));
+  args.push_back(tmp1);
+  args.push_back(tmp2);
+  args.push_back(tmp3);
+  args.push_back(tmp4);
   args.push_back(NULL);
-  if (ssbml::launch_program("python", (char**)&args[0], &readFd, &writeFd) < 0)
-  {
-    return;
-  }
+  child_program childProgram("python", args, false);
 
   buf = new uint8_t[bufSize];
   rgbBuf = buf;
   gamepadBuf = rgbBuf + rgbBufSize;
   labelBuf = gamepadBuf + gamepadBufSize;
-  while (!trainSession.modelLoaded)
+  while (!trainSession.quit && (received = childProgram.try_read_from(buf,
+    bufSize)) < 0)
   {
-    if (trainSession.quit)
+    timer.get_delta_time(66666);
+    trainSession.set_info(info);
+  }
+  if (received > 0)
+  {
+    if (buf[0] == (uint8_t)child_program::from_child_flag::child_initialized)
     {
-      close(readFd);
-      close(writeFd);
-      delete[] buf;
-      return;
+        info.modelLoaded = true;
+        trainSession.set_info(info);
     }
-    unsigned long deltaTime = t.get_delta_time();
-    if (deltaTime < 66666)
+    else
     {
-      usleep(66666 - deltaTime);
-      t.get_delta_time();
-    }
-    trainSession.set_train_info(false, 0, 0, 0, "", 0, 0.0, 0, false);
-    ssize_t len = read(readFd, buf, bufSize);
-    if (len < 0 && errno != EAGAIN)
-    {
-      close(readFd);
-      close(writeFd);
-      perror("read");
-      delete[] buf;
-      return;
-    }
-    if (len > 0)
-    {
-      uint8_t flag = buf[0];
-      switch (flag)
-      {
-        case (uint8_t)ssbml::train_session::Py2CC_Flag::ModelLoaded:
-          trainSession.modelLoaded = true;
-          break;
-        default:
-          std::cerr << "Received close(readFd); flag 0x" << std::setfill('0')
-            << std::setw(2) << std::hex << (uint32_t)flag << std::endl;
-          break;
-      }
+      std::cerr << "Received unknown flag 0x" << std::setfill('0') << std::setw(2)
+        << std::hex << (uint32_t)buf[0] << std::endl;
     }
   }
-  trainSession.set_train_info(true, 0, 0, 0, "", 0, 0.0, trainingFiles.size(),
-    false);
 
-  for (uint64_t currentEpoch = 0; currentEpoch < trainSession.totalEpochs;
-    ++currentEpoch)
+  timer.reset();
+  for (uint64_t currentEpoch = 0; currentEpoch < trainSession.totalEpochs
+    && !trainSession.quit; ++currentEpoch)
   {
+    double avgLoss = 0;
+    uint64_t trainedFramesPerEpoch = 0;
+    info.currentEpoch = currentEpoch;
+
     for (std::vector<std::string>::size_type currentFileIndex = 0;
-      currentFileIndex < trainingFiles.size(); ++currentFileIndex)
+      currentFileIndex < trainingFiles.size() && !trainSession.quit;
+      ++currentFileIndex)
     {
-      std::string fileName = trainingFiles[currentFileIndex];
-      ssbml::video_file videoFile(fileName + ".mp4");
-      ssbml::gamepad_file gamepadFile(fileName + ".gamepad");
+      std::string currentFileName = trainingFiles[currentFileIndex];
+      ssbml::video_file videoFile(currentFileName + ".mp4");
+      ssbml::gamepad_file gamepadFile(currentFileName + ".gamepad");
       uint64_t currentFileFrameCount = videoFile.get_total_frames();
-      uint64_t batches = currentFileFrameCount / (trainSession.batchSize + 1);
+      uint64_t batches = currentFileFrameCount / trainSession.batchSize;
       uint64_t excessFrames = currentFileFrameCount - batches
         * trainSession.batchSize;
-
-      for (uint64_t currentBatch = 0; currentBatch < batches; ++currentBatch)
+      if (excessFrames == 0)
       {
-        trainSession.set_train_info(true, currentEpoch, currentFileIndex,
-          currentFileFrameCount, fileName, currentBatch * trainSession.batchSize,
-          (double)trainedFrames / totalFrames, totalFiles, false);
+        --batches;
+        excessFrames += 10;
+      }
+      info.currentFileName = currentFileName;
+      info.currentFileFrameCount = currentFileFrameCount;
+      info.currentFileIndex = currentFileIndex;
 
-        buf[0] = (uint8_t)ssbml::train_session::CC2Py_Flag::Batch;
-        if (write(writeFd, buf, 1) < 0)
-        {
-          close(readFd);
-          close(writeFd);
-          perror("write");
-          delete[] buf;
-          return;
-        }
-        // Send the frames and gamepad info in the batch
+      for (uint64_t currentBatch = 0; currentBatch < batches
+        && !trainSession.quit; ++currentBatch)
+      {
+        info.fileProgress = (double)currentBatch / batches;
+        info.epochProgress = (double)trainedFramesPerEpoch
+          / totalFramesPerEpoch;
+        info.totalProgress = (double)trainedFrames / totalFrames;
+        info.currentFrame = currentBatch * trainSession.batchSize;
+        info.timeTaken = timer.total_time();
+        info.eta = (double)info.timeTaken / trainedFrames
+          * (totalFrames - trainedFrames);
+        info.eta = ((info.eta + 10000000 / 2) / 10000000) * 10000000;
+        trainSession.set_info(info);
+
+        childProgram.write_to((uint8_t)to_child_flag::train_batch_request);
+
         for (uint64_t currentFrame = 0; currentFrame < trainSession.batchSize;
           ++currentFrame)
         {
-          if (trainSession.quit)
-          {
-            close(readFd);
-            close(writeFd);
-            delete[] buf;
-            return;
-          }
           videoFile >> rgbBuf;
           gamepadFile >> gamepadBuf;
           gamepadFile >> labelBuf;
           gamepadFile.rewind();
-          if (write(writeFd, buf, rgbBufSize + gamepadBufSize * 2) < 0)
-          {
-            close(readFd);
-            close(writeFd);
-            perror("write(2)");
-            return;
-          }
+          childProgram.write_to(buf, rgbBufSize + gamepadBufSize * 2);
         }
 
-        // Wait for response saying that the batch was trained
-        t.get_delta_time();
-        bool batchTrained = false;
-        while (!batchTrained)
+        while (!trainSession.quit && (received = childProgram.try_read_from(buf,
+          bufSize)) < 0)
+          ;
+        if (received > 0)
         {
-          if (trainSession.quit)
+          if (buf[0] == (uint8_t)from_child_flag::train_batch_request_ack)
           {
-            close(readFd);
-            close(writeFd);
-            delete[] buf;
-            return;
+            avgLoss += ((float*)(buf + 1))[0];
           }
-          unsigned long deltaTime = t.get_delta_time();
-          if (deltaTime < 33333)
+          else
           {
-            usleep(33333 - deltaTime);
-            t.get_delta_time();
-          }
-          ssize_t len = read(readFd, buf, bufSize);
-          if (len < 0 && errno != EAGAIN)
-          {
-            close(readFd);
-            close(writeFd);
-            perror("read(2)");
-            delete[] buf;
-            return;
-          }
-          else if (len > 0)
-          {
-            uint8_t flag = buf[0];
-            switch (flag)
-            {
-              case (uint8_t)ssbml::train_session::Py2CC_Flag::BatchTrained:
-                batchTrained = true;
-                break;
-              default:
-                std::cerr << "Received unknown flag 0x" << std::setfill('0')
-                  << std::setw(2) << std::hex << (uint32_t)flag << std::endl;
-                break;
-            }
+            std::cerr << "Received unknown flag 0x" << std::setfill('0')
+              << std::setw(2) << std::hex << (uint32_t)buf[0] << std::endl;
           }
         }
         trainedFrames += trainSession.batchSize;
+        trainedFramesPerEpoch += trainSession.batchSize;
       }
       trainedFrames += excessFrames;
+      trainedFramesPerEpoch += excessFrames;
     }
+
+    avgLoss /= totalFramesPerEpoch;
+    std::cout << avgLoss << std::endl;
   }
 
-  trainSession.set_train_info(true, 0, 0, 0, "", 0, 1.0, totalFiles, false);
+  info.fileProgress = 1.0;
+  info.epochProgress = 1.0;
+  info.totalProgress = 1.0;
+  info.currentEpoch = trainSession.totalEpochs;
+  info.currentFileName = "";
+  info.timeTaken = timer.total_time();
+  info.eta = 0;
 
-  buf[0] = (uint8_t)ssbml::train_session::CC2Py_Flag::Done;
-  if (write(writeFd, buf, 1) < 0)
+  if (!trainSession.quit)
   {
-    close(readFd);
-    close(writeFd);
-    perror("write(3)");
-    delete[] buf;
-    return;
+    childProgram.write_to(
+      (uint8_t)ssbml::train_session::to_child_flag::save_model_request);
   }
 
-  while (!modelSaved)
+  while (!trainSession.quit && (received = childProgram.try_read_from(buf,
+    bufSize)) < 0)
   {
-    if (trainSession.quit)
+    trainSession.set_info(info);
+    timer.get_delta_time(66666);
+  }
+  if (received > 0)
+  {
+    uint8_t flag = buf[0];
+    switch (flag)
     {
-      close(readFd);
-      close(writeFd);
-      delete[] buf;
-      return;
-    }
-    unsigned long deltaTime = t.get_delta_time();
-    if (deltaTime < 66666)
-    {
-      usleep(66666 - deltaTime);
-      t.get_delta_time();
-    }
-    ssize_t len = read(readFd, buf, bufSize);
-    if (len < 0 && errno != EAGAIN)
-    {
-      close(readFd);
-      close(writeFd);
-      perror("read(3)");
-      delete[] buf;
-      return;
-    }
-    else if (len > 0)
-    {
-      uint8_t flag = buf[0];
-      switch (flag)
-      {
-        case (uint8_t)ssbml::train_session::Py2CC_Flag::ModelSaved:
-          modelSaved = true;
-          break;
-        default:
-          std::cerr << "Received unknown flag 0x" << std::setfill('0')
-            << std::setw(2) << std::hex << (uint32_t)flag << std::endl;
-          close(readFd);
-          close(writeFd);
-          delete[] buf;
-          return;
-      }
+      case (uint8_t)ssbml::train_session::from_child_flag::save_model_request_ack:
+        break;
+      default:
+        std::cerr << "Received unknown flag 0x" << std::setfill('0')
+          << std::setw(2) << std::hex << (uint32_t)flag << std::endl;
+        delete[] buf;
+        return;
     }
   }
 
-  trainSession.set_train_info(true, 0, 0, 0, "", 0, 1.0, totalFiles, true);
-  close(readFd);
-  close(writeFd);
+  if(!trainSession.quit)
+  {
+    info.trainingCompleted = true;
+    trainSession.set_info(info);
+    if (trainSession.suspendOnCompletion)
+    {
+      std::system("systemctl suspend");
+    }
+  }
   delete[] buf;
 }

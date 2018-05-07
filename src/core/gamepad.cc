@@ -1,5 +1,45 @@
 #include "gamepad.h"
 
+std::string ssbml::gamepad::compressed::to_string()
+{
+  struct buttons buttons;
+  buttons.a = this->buttons & 0x1;
+  buttons.b = (this->buttons >> 1) & 0x1;
+  buttons.x = (this->buttons >> 2) & 0x1;
+  buttons.y = (this->buttons >> 3) & 0x1;
+  buttons.tr = (this->buttons >> 4) & 0x1;
+  buttons.tl = (this->buttons >> 5) & 0x1;
+  buttons.thumbr = (this->buttons >> 6) & 0x1;
+  buttons.thumbl = (this->buttons >> 7) & 0x1;
+  buttons.select = (this->buttons >> 8) & 0x1;
+  buttons.start = (this->buttons >> 9) & 0x1;
+  buttons.mode = (this->buttons >> 10) & 0x1;
+
+  return buttons.to_string() + ' ' + analogs.to_string();
+}
+
+std::string ssbml::gamepad::buttons::to_string()
+{
+  return std::to_string(a) + ' ' + std::to_string(b) + ' ' + std::to_string(x)
+    + ' ' + std::to_string(y) + ' ' + std::to_string(tr) + ' '
+    + std::to_string(tl) + ' ' + std::to_string(thumbr) + ' '
+    + std::to_string(thumbl) + ' ' + std::to_string(select) + ' '
+    + std::to_string(start) + ' ' + std::to_string(mode);
+}
+
+std::string ssbml::gamepad::analogs::to_string()
+{
+  return std::to_string(x) + ' ' + std::to_string(y) + ' ' + std::to_string(z)
+    +  ' ' + std::to_string(rx) + ' ' + std::to_string(ry) + ' '
+    + std::to_string(rz) + ' ' + std::to_string(hat0x) + ' '
+    + std::to_string(hat0y);
+}
+
+std::string ssbml::gamepad::to_string()
+{
+   return buttons.to_string() + ' ' + analogs.to_string();
+}
+
 void ssbml::gamepad::compress(compressed &c)
 {
   c.buttons = buttons.a | (buttons.b << 1) | (buttons.x << 2)

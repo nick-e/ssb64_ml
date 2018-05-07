@@ -8,12 +8,14 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <iostream>
+#include <mutex>
 
 #include "gamepad.h"
+#include "threadsafe_gamepad.h"
 
 namespace ssbml
 {
-  class gamepad_spoofer : protected gamepad
+  class gamepad_spoofer : public gamepad
   {
   public:
     gamepad_spoofer();
@@ -21,8 +23,10 @@ namespace ssbml
 
     gamepad_spoofer& operator<<(const compressed &c);
     gamepad_spoofer& operator<<(const gamepad &g);
+    gamepad_spoofer& operator<<(threadsafe_gamepad &g);
 
     void update(const gamepad &g);
+    void update(threadsafe_gamepad &g);
     void update(const compressed &c) override;
 
   private:

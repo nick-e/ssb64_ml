@@ -19,6 +19,7 @@
   #include <libavformat/avformat.h>
 }*/
 
+#include "gamepad.h"
 #include "gamepad_listener.h"
 #include "video_input.h"
 #include "video_output.h"
@@ -29,8 +30,15 @@ namespace ssbml
   class record_session
   {
   public:
-    void get_record_info(bool *recording, unsigned long *totalTime,
-      std::string &filePrefix);
+    struct info
+    {
+        bool recording;
+        unsigned long totalTime;
+        std::string filePrefix;
+        gamepad::compressed c;
+    };
+
+    void get_info(struct info &info);
 
     record_session(Display *display, Window window, uint64_t frameWidth,
       uint64_t frameHeight, double fps, std::string gamepadDeviceFileName,
@@ -39,22 +47,19 @@ namespace ssbml
 
   protected:
     Glib::Dispatcher &dispatcher;
-    bool recording;
     double fps;
     uint64_t frameHeight;
     uint64_t frameWidth;
-    unsigned long totalTime;
     std::atomic<bool> quit;
     std::string dstDir;
-    std::string filePrefix;
     std::string gamepadDeviceFileName;
     ::Window window;
     Display *display;
+    struct info info;
     std::mutex m;
     std::thread recordThread;
 
-    void set_record_info(bool recording, unsigned long totalTime,
-      std::string filePrefix);
+    void set_info(const struct info &info);
     static void record_thread_routine(record_session &recordSession);
   };
 }

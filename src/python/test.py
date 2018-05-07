@@ -3,14 +3,13 @@ from enum import Enum
 
 import model
 import data
+import child_program
 
-class Py2CC_Flag(Enum):
-    ModelLoaded = b'\x41'
-    Output = b'\x69'
+class from_child_flag(Enum):
+    test_batch_request_ack = b'\x02'
 
-class CC2Py_Flag(Enum):
-    Data = b'\x33'
-    Done = b'\x80'
+class to_child_flag(Enum):
+    test_batch_request = b'\x02'
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
@@ -28,14 +27,12 @@ def main():
         optimizer, loss \
         = model.load_model(modelSrc, frameWidth, frameHeight)
 
-    sys.stdout.buffer.write(Py2CC_Flag.ModelLoaded.value)
-    sys.stdout.flush()
-
+    child_program.send_init_flag()
     while True:
-        flag = sys.stdin.buffer.read(1)
-        if flag == CC2Py_Flag.Done.value:
+        flag = child_program.next_flag();
+        if flag == child_program.to_child_flag.shutdown_request.value:
             break
-        elif flag == CC2Py_Flag.Data.value:
+        elif flag == to_child_flag.test_batch_request.value:
             videoInput2, gamepadInput2 = data.get_data(frameWidth, frameHeight)
             gamepadOutput = sess.run(
                 [gamepadButtonOutput, gamepadAnalogOutput],
@@ -45,12 +42,13 @@ def main():
                     gamepadInput: gamepadInput2
                 }
             )
-            sys.stdout.buffer.write(Py2CC_Flag.Output.value)
-            sys.stdout.buffer.write(data.compress_gamepad(gamepadOutput))
-            sys.stdout.flush()
+            child_program.write(from_child_flag.test_batch_request_ack, \
+                data.compress_gamepad(gamepadOutput))
         else:
             eprint("Received unkown flag ", flag)
             break
+
+    child_program.terminate()
 
 
 if __name__ == "__main__":

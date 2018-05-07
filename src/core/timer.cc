@@ -28,3 +28,14 @@ unsigned long ssbml::timer::get_delta_time()
   last = now;
   return diff;
 }
+
+unsigned long ssbml::timer::get_delta_time(unsigned long min)
+{
+  unsigned long deltaTime = get_delta_time();
+  if (deltaTime >= min)
+  {
+    return deltaTime;
+  }
+  usleep(min - deltaTime);
+  return min;
+}
