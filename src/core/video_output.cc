@@ -88,7 +88,7 @@ ssbml::video_output::video_output(std::string fileName, uint64_t width,
   cctx->time_base.den = (int)fps;
   //stream->time_base.num = 1;
   //stream->time_base.den = (int)fps;
-  cctx->gop_size = 15;
+  cctx->gop_size = fps;
   cctx->pix_fmt = AV_PIX_FMT_YUV420P;
 
   if (fctx->oformat->flags & AVFMT_GLOBALHEADER)

@@ -12,13 +12,13 @@ void ssbml::gui::record_window::get_record_info()
 }
 
 ssbml::gui::record_window::record_window(Display *display, ::Window window,
-  std::string gamepadDeviceFileName, std::string dstFolder) :
+  std::string gamepadDeviceFileName, double fps, std::string dstFolder) :
   recordingLabel("NOT RECORDING"),
   timeLabel("00:00:00.0"),
   prefixLabel(""),
   box(Gtk::ORIENTATION_VERTICAL, 10),
   gamepadVisualizer(256),
-  recordSession(display, window, 256, 144, 30.0, gamepadDeviceFileName,
+  recordSession(display, window, 256, 144, fps, gamepadDeviceFileName,
     dstFolder + "/", dispatcher)
 {
   set_title("Record Session");

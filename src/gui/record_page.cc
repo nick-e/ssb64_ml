@@ -40,7 +40,7 @@ void ssbml::gui::record_page::on_startButton_clicked()
   else
   {
     recordWindow = new ssbml::gui::record_window(display, window,
-      gamepadDeviceFileName, dir);
+      gamepadDeviceFileName, 40.0, dir);
     recordWindow->signal_delete_event().connect(sigc::mem_fun(*this,
       &record_page::on_record_window_closed));
     recordWindow->set_transient_for(mainWindow);

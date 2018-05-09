@@ -37,5 +37,6 @@ unsigned long ssbml::timer::get_delta_time(unsigned long min)
     return deltaTime;
   }
   usleep(min - deltaTime);
+  last = std::chrono::high_resolution_clock::now();
   return min;
 }

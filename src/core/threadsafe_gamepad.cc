@@ -18,8 +18,8 @@ void ssbml::threadsafe_gamepad::update(const compressed &c)
   gamepad::update(c);
 }
 
-ssbml::threadsafe_gamepad::threadsafe_gamepad() :
-  gamepad()
+ssbml::threadsafe_gamepad::threadsafe_gamepad(float deadzone) :
+  gamepad(deadzone)
 {
 
 }
@@ -63,6 +63,7 @@ ssbml::threadsafe_gamepad& ssbml::threadsafe_gamepad::operator=(
     std::lock_guard<std::mutex> lock(m), otherLock(other.m);
     buttons = other.buttons;
     analogs = other.analogs;
+    deadzone = other.deadzone;
   }
   return *this;
 }
@@ -75,6 +76,7 @@ ssbml::threadsafe_gamepad& ssbml::threadsafe_gamepad::operator=(
     std::lock_guard<std::mutex> lock(m);
     buttons = other.buttons;
     analogs = other.analogs;
+    deadzone = other.deadzone;
   }
   return *this;
 }

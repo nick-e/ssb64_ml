@@ -42,30 +42,63 @@ std::string ssbml::gamepad::to_string()
 
 void ssbml::gamepad::compress(compressed &c)
 {
-  c.buttons = buttons.a | (buttons.b << 1) | (buttons.x << 2)
-    | (buttons.y << 3) | (buttons.tr << 4) | (buttons.tl << 5)
-    | (buttons.thumbr << 6) | (buttons.thumbl << 7) | (buttons.select << 8)
-    | (buttons.start << 9) | (buttons.mode << 10);
+  c.buttons = buttons.mode ? 1 : 0;
+  c.buttons <<= 1;
+  c.buttons |= buttons.start ? 1 : 0;
+  c.buttons <<= 1;
+  c.buttons |= buttons.select ? 1 : 0;
+  c.buttons <<= 1;
+  c.buttons |= buttons.thumbl ? 1 : 0;
+  c.buttons <<= 1;
+  c.buttons |= buttons.thumbr ? 1 : 0;
+  c.buttons <<= 1;
+  c.buttons |= buttons.tl ? 1 : 0;
+  c.buttons <<= 1;
+  c.buttons |= buttons.tr ? 1 : 0;
+  c.buttons <<= 1;
+  c.buttons |= buttons.y ? 1 : 0;
+  c.buttons <<= 1;
+  c.buttons |= buttons.x ? 1 : 0;
+  c.buttons <<= 1;
+  c.buttons |= buttons.b ? 1 : 0;
+  c.buttons <<= 1;
+  c.buttons |= buttons.a ? 1 : 0;
   c.analogs = analogs;
 }
 
 void ssbml::gamepad::update(const compressed &c)
 {
   buttons.a = c.buttons & 0x1;
-  buttons.b = (c.buttons >> 1) & 0x1;
-  buttons.x = (c.buttons >> 2) & 0x1;
-  buttons.y = (c.buttons >> 3) & 0x1;
-  buttons.tr = (c.buttons >> 4) & 0x1;
-  buttons.tl = (c.buttons >> 5) & 0x1;
-  buttons.thumbr = (c.buttons >> 6) & 0x1;
-  buttons.thumbl = (c.buttons >> 7) & 0x1;
-  buttons.select = (c.buttons >> 8) & 0x1;
-  buttons.start = (c.buttons >> 9) & 0x1;
-  buttons.mode = (c.buttons >> 10) & 0x1;
+  buttons.b = (c.buttons >> 1) & 1;
+  buttons.x = (c.buttons >> 2) & 1;
+  buttons.y = (c.buttons >> 3) & 1;
+  buttons.tr = (c.buttons >> 4) & 1;
+  buttons.tl = (c.buttons >> 5) & 1;
+  buttons.thumbr = (c.buttons >> 6) & 1;
+  buttons.thumbl = (c.buttons >> 7) & 1;
+  buttons.select = (c.buttons >> 8) & 1;
+  buttons.start = (c.buttons >> 9) & 1;
+  buttons.mode = (c.buttons >> 10) & 1;
   analogs = c.analogs;
+  if (analogs.x <= deadzone && analogs.x >= -deadzone)
+  {
+    analogs.x = 0;
+  }
+  if (analogs.y <= deadzone && analogs.y >= -deadzone)
+  {
+    analogs.y = 0;
+  }
+  if (analogs.rx <= deadzone && analogs.rx >= -deadzone)
+  {
+    analogs.rx = 0;
+  }
+  if (analogs.ry <= deadzone && analogs.ry >= -deadzone)
+  {
+    analogs.ry = 0;
+  }
 }
 
-ssbml::gamepad::gamepad() :
+ssbml::gamepad::gamepad(uint16_t deadzone) :
   buttons(
   {
     .a = 0,
@@ -90,7 +123,8 @@ ssbml::gamepad::gamepad() :
     .rz = 0,
     .hat0x = 0,
     .hat0y = 0
-  })
+  }),
+  deadzone(deadzone)
 {
 
 }
@@ -113,18 +147,21 @@ ssbml::gamepad& ssbml::gamepad::operator=(const gamepad &other)
   {
     buttons = other.buttons;
     analogs = other.analogs;
+    deadzone = other.deadzone;
   }
   return *this;
 }
 
 ssbml::gamepad::gamepad(const gamepad &other) :
   buttons(other.buttons),
-  analogs(other.analogs)
+  analogs(other.analogs),
+  deadzone(other.deadzone)
 {
 
 }
 
-ssbml::gamepad::gamepad(const compressed &c)
+ssbml::gamepad::gamepad(const compressed &c) :
+  deadzone(DEFAULT_DEAD_ZONE)
 {
   update(c);
 }

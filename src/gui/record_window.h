@@ -23,7 +23,7 @@ namespace ssbml
       gamepad_visualizer gamepadVisualizer;
 
       record_window(Display *display, ::Window window,
-        std::string gamepadDeviceFileName, std::string dstFolder);
+        std::string gamepadDeviceFileName, double fps, std::string dstFolder);
 
       protected:
         record_session recordSession;

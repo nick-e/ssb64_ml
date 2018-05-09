@@ -44,21 +44,20 @@ bool has_suffix(const std::string &str, const std::string &suffix)
            str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
-static int get_training_file_names(std::string trainingFilesDir,
-  std::vector<std::string> &trainingFiles, uint64_t *totalFrames)
+static uint64_t get_record_file_names(std::string directory,
+  std::vector<std::string> &fileNames)
 {
-  uint64_t frames = 0;
+  uint64_t totalFrames = 0;
 
-  DIR *dir = opendir(trainingFilesDir.c_str());
+  DIR *dir = opendir(directory.c_str());
   struct dirent *entry;
   if (dir == NULL)
   {
-    perror(trainingFilesDir.c_str());
-    return -1;
+    throw std::runtime_error(std::string("opendir: ") + strerror(errno));
   }
   while ((entry = readdir(dir)) != NULL)
   {
-    std::string videoFileName = trainingFilesDir + "/" + entry->d_name;
+    std::string videoFileName = directory + "/" + entry->d_name;
     if (!has_suffix(videoFileName, ".mp4"))
     {
       continue;
@@ -66,9 +65,7 @@ static int get_training_file_names(std::string trainingFilesDir,
     struct stat s;
     if (stat(videoFileName.c_str(), &s) < 0)
     {
-      perror("stat");
-      closedir(dir);
-      return - 1;
+      throw std::runtime_error(std::string("stat: ") + strerror(errno));
     }
     if ((s.st_mode & S_IFMT) != S_IFREG)
     {
@@ -76,14 +73,12 @@ static int get_training_file_names(std::string trainingFilesDir,
     }
 
     ssbml::video_file videoFile(videoFileName);
-    trainingFiles.push_back(videoFileName.substr(0,
-      videoFileName.find_last_of(".")));
-    frames += videoFile.get_total_frames();
+    fileNames.push_back(videoFileName.substr(0, videoFileName.find_last_of(".")));
+    totalFrames += videoFile.get_total_frames();
   }
   closedir(dir);
 
-  *totalFrames = frames;
-  return 0;
+  return totalFrames;
 }
 
 ssbml::train_session::train_session(std::string metaFile,
@@ -150,11 +145,8 @@ void ssbml::train_session::train_thread_routine(
   };
 
   trainSession.set_info(info);
-  if (get_training_file_names(trainSession.trainingDataDir, trainingFiles,
-    &totalFramesPerEpoch) < 0)
-  {
-    return;
-  }
+  totalFramesPerEpoch = get_record_file_names(trainSession.trainingDataDir,
+    trainingFiles);
   totalFrames = totalFramesPerEpoch * trainSession.totalEpochs;
   info.totalFiles = trainingFiles.size();
 
@@ -231,14 +223,8 @@ void ssbml::train_session::train_thread_routine(
           / totalFramesPerEpoch;
         info.totalProgress = (double)trainedFrames / totalFrames;
         info.currentFrame = currentBatch * trainSession.batchSize;
-        info.timeTaken = timer.total_time();
-        info.eta = (double)info.timeTaken / trainedFrames
-          * (totalFrames - trainedFrames);
-        info.eta = ((info.eta + 10000000 / 2) / 10000000) * 10000000;
-        trainSession.set_info(info);
 
         childProgram.write_to((uint8_t)to_child_flag::train_batch_request);
-
         for (uint64_t currentFrame = 0; currentFrame < trainSession.batchSize;
           ++currentFrame)
         {
@@ -248,6 +234,10 @@ void ssbml::train_session::train_thread_routine(
           gamepadFile.rewind();
           childProgram.write_to(buf, rgbBufSize + gamepadBufSize * 2);
         }
+        info.timeTaken = timer.total_time();
+        info.eta = timer.get_delta_time() / trainSession.batchSize * (totalFrames - trainedFrames);
+        info.eta = ((info.eta + 1000000 / 2) / 1000000) * 1000000;
+        trainSession.set_info(info);
 
         while (!trainSession.quit && (received = childProgram.try_read_from(buf,
           bufSize)) < 0)
@@ -272,7 +262,7 @@ void ssbml::train_session::train_thread_routine(
     }
 
     avgLoss /= totalFramesPerEpoch;
-    std::cout << avgLoss << std::endl;
+    std::cout << "train loss = " << avgLoss << std::endl;
   }
 
   info.fileProgress = 1.0;

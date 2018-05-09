@@ -6,6 +6,9 @@
 #include <fstream>
 #include <string>
 
+#define ANALOG_MAX_VALUE 32767
+#define DEFAULT_DEAD_ZONE (uint16_t)(ANALOG_MAX_VALUE * 0.1)
+
 namespace ssbml
 {
   class gamepad
@@ -35,6 +38,7 @@ namespace ssbml
 
     buttons buttons;
     analogs analogs;
+    uint16_t deadzone;
 
     virtual std::string to_string();
     virtual void compress(compressed &c);
@@ -44,7 +48,7 @@ namespace ssbml
     gamepad& operator>>(compressed &c);
     gamepad& operator=(const gamepad &other);
 
-    gamepad();
+    gamepad(uint16_t deadzone = DEFAULT_DEAD_ZONE);
     gamepad(const gamepad& other);
     gamepad(const compressed &c);
     virtual ~gamepad();

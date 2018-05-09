@@ -27,55 +27,56 @@ void ssbml::gamepad_listener::listen_thread_routine(ssbml::gamepad_listener &gl)
     }
 
     lock.lock();
+    int16_t value = (int16_t)e.value;
     switch (e.code)
     {
       case (int)BTN_A:
-        gl.buttons.a = (bool)e.value;
+        gl.buttons.a = (bool)value;
         break;
       case (int)BTN_B:
-        gl.buttons.b = (bool)e.value;
+        gl.buttons.b = (bool)value;
         break;
       case (int)BTN_X:
-        gl.buttons.x = (bool)e.value;
+        gl.buttons.x = (bool)value;
         break;
       case (int)BTN_Y:
-        gl.buttons.y = (bool)e.value;
+        gl.buttons.y = (bool)value;
         break;
       case (int)BTN_TR:
-        gl.buttons.tr = (bool)e.value;
+        gl.buttons.tr = (bool)value;
         break;
       case (int)BTN_TL:
-        gl.buttons.tl = (bool)e.value;
+        gl.buttons.tl = (bool)value;
         break;
       case (int)BTN_THUMBR:
-        gl.buttons.thumbr = (bool)e.value;
+        gl.buttons.thumbr = (bool)value;
         break;
       case (int)BTN_THUMBL:
-        gl.buttons.thumbl = (bool)e.value;
+        gl.buttons.thumbl = (bool)value;
         break;
       case (int)BTN_SELECT:
-        gl.buttons.select = (bool)e.value;
+        gl.buttons.select = (bool)value;
         break;
       case (int)BTN_START:
-        gl.buttons.start = (bool)e.value;
+        gl.buttons.start = (bool)value;
         break;
       case (int)BTN_MODE:
-        gl.buttons.mode = (bool)e.value;
+        gl.buttons.mode = (bool)value;
         break;
       case (int)ABS_X:
-        gl.analogs.x = (int16_t)e.value;
+        gl.analogs.x = (value <= gl.deadzone && value >= -gl.deadzone) ? 0 : value;
         break;
       case (int)ABS_Y:
-        gl.analogs.y = (int16_t)e.value;
+        gl.analogs.y = (value <= gl.deadzone && value >= -gl.deadzone) ? 0 : value;
         break;
       case (int)ABS_Z:
         gl.analogs.z = (int16_t)e.value;
         break;
       case (int)ABS_RX:
-        gl.analogs.rx = (int16_t)e.value;
+        gl.analogs.rx = (value <= gl.deadzone && value >= -gl.deadzone) ? 0 : value;
         break;
       case (int)ABS_RY:
-        gl.analogs.ry = (int16_t)e.value;
+        gl.analogs.ry = (value <= gl.deadzone && value >= -gl.deadzone) ? 0 : value;
         break;
       case (int)ABS_RZ:
         gl.analogs.rz = (int16_t)e.value;

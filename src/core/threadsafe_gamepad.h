@@ -21,7 +21,7 @@ namespace ssbml
     threadsafe_gamepad& operator=(threadsafe_gamepad &other);
     threadsafe_gamepad& operator=(const gamepad &other);
 
-    threadsafe_gamepad();
+    threadsafe_gamepad(float deadzone = DEFAULT_DEAD_ZONE);
     threadsafe_gamepad(threadsafe_gamepad &other);
     threadsafe_gamepad(gamepad &other);
     threadsafe_gamepad(const compressed &c);

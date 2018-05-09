@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <unistd.h>
+#include <iostream>
 
 namespace ssbml
 {

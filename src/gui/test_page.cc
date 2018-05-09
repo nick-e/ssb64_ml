@@ -44,7 +44,7 @@ void ssbml::gui::test_page::on_test_button_clicked()
   else
   {
     testWindow = new ssbml::gui::test_window(display, window,
-      256, 144, 30.0, gamepadDeviceFileName, modelMeta, *gamepadSpoofer);
+      256, 144, 40.0, gamepadDeviceFileName, modelMeta, *gamepadSpoofer);
     testWindow->signal_delete_event().connect(sigc::mem_fun(*this,
       &test_page::on_test_window_closed));
     testWindow->set_transient_for(mainWindow);
