@@ -27,14 +27,10 @@ namespace ssbml
   {
   public:
 
-    enum class from_child_flag
-    {
-      test_batch_request_ack = 0x02
-    };
-
     enum class to_child_flag
     {
-      test_batch_request = 0x02
+      test = 0x02,
+      clear_lstm_state = 0x03
     };
 
     struct info

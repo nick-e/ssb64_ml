@@ -11,14 +11,11 @@ def main():
 	dst = sys.argv[1]
 	imageWidth = int(sys.argv[2])
 	imageHeight = int(sys.argv[3])
-
-	videoInput, gamepadInput, buttonOutput, buttonTarget, analogOutput, \
-		analogTarget, lstmFinalState, lstmInitialState, lstmState, optimizer, loss \
-		= model.create_model(imageWidth, imageHeight, 1)
+	instance = model.train_model(imageWidth, imageHeight, 2)
 
 	with tf.Session() as sess:
 		sess.run(tf.global_variables_initializer())
-		model.save_model(dst, sess)
+		instance.save(dst, sess)
 
 if __name__ == "__main__":
 	main()

@@ -18,7 +18,7 @@ ssbml::gui::record_window::record_window(Display *display, ::Window window,
   prefixLabel(""),
   box(Gtk::ORIENTATION_VERTICAL, 10),
   gamepadVisualizer(256),
-  recordSession(display, window, 256, 144, fps, gamepadDeviceFileName,
+  recordSession(display, window, 128, 72, fps, gamepadDeviceFileName,
     dstFolder + "/", dispatcher)
 {
   set_title("Record Session");

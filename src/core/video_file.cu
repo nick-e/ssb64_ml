@@ -147,6 +147,10 @@ __global__ void yuv2rgb(uint8_t *rgbBuf, const uint8_t *lumaBuf,
     rgbBuf[index2] = red;
     rgbBuf[index2 + 1] = green;
     rgbBuf[index2 + 2] = blue;
+
+		rgbBuf[index2] = luma;
+		rgbBuf[index2 + 1] = luma;
+		rgbBuf[index2 + 2] = luma;
   }
 }
 
@@ -211,6 +215,8 @@ void ssbml::video_file::get_frame(uint8_t *rgbBuf)
   cudaDeviceSynchronize();
 
   cudaMemcpy(rgbBuf, this->rgbBuf, frameSize * 3, cudaMemcpyDeviceToHost);
+	cudaMemcpy(rgbBuf, this->rgbBuf, frameSize * 3, cudaMemcpyDeviceToHost);
+	create_ppm("/home/nick/Downloads/test.ppm", rgbBuf, cctx->width, cctx->height);
 }
 
 void ssbml::video_file::get_frame(AVFrame &frame)
@@ -221,4 +227,9 @@ void ssbml::video_file::get_frame(AVFrame &frame)
   memcpy(frame.data[0], this->frame->data[0], frameSize);
   memcpy(frame.data[1], this->frame->data[1], frameSize / 4);
   memcpy(frame.data[2], this->frame->data[2], frameSize / 4);
+}
+
+void ssbml::video_file::skip_frame()
+{
+	get_image();
 }

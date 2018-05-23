@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <cstdlib>
 #include <stdio.h>
+#include <algorithm>
 
 #include <gtkmm-3.0/gtkmm.h>
 
@@ -49,31 +50,33 @@ namespace ssbml
 
     enum class from_child_flag
     {
-      train_batch_request_ack = 0x02,
-      save_model_request_ack = 0x03,
+      save_ack = 0x03
     };
 
     enum class to_child_flag
     {
-      train_batch_request = 0x02,
-      save_model_request = 0x03,
+      train = 0x02,
+      save = 0x03,
+      validate = 0x04,
+      new_file = 0x05
     };
 
     void get_info(struct info &info);
     static void create_model(std::string dstDir);
 
     train_session(std::string metaFile, std::string trainingDataDir,
-      uint64_t totalEpochs, uint64_t batchSize, uint64_t frameWidth,
-      uint64_t frameHeight, bool suspendOnCompletion,
+			bool suspendOnCompletion, uint64_t downsampleRate, uint64_t frameWidth,
+			uint64_t frameHeight, uint64_t lookback, uint64_t totalEpochs,
       Glib::Dispatcher &dispatcher);
     ~train_session();
 
   private:
     Glib::Dispatcher &dispatcher;
     bool suspendOnCompletion;
-    uint64_t batchSize;
+    uint64_t downsampleRate;
     uint64_t frameHeight;
     uint64_t frameWidth;
+		uint64_t lookback;
     uint64_t totalEpochs;
     info info;
     std::string metaFile;

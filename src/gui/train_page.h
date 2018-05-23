@@ -14,43 +14,53 @@ namespace ssbml
 
     protected:
       Gtk::Window &mainWindow;
-      Gtk::Frame model_frame;
-      Gtk::Box model_box;
-      Gtk::Box model_box2;
-      Gtk::Label model_label;
-      Gtk::FileChooserButton model_fileChooser;
-      Gtk::Button model_button;
-      Gtk::Box epoch_box;
-      Gtk::Label epoch_label;
-      Gtk::SpinButton epoch_spinButton;
-      Gtk::Box batch_box;
-      Gtk::Label batch_label;
-      Gtk::SpinButton batch_spinButton;
-      Gtk::Frame data_frame;
-      Gtk::Box data_box;
-      Gtk::Box train_box;
-      Gtk::Label train_label;
-      Gtk::FileChooserButton train_fileChooser;
-      Gtk::Box test_box;
-      Gtk::Label test_label;
-      Gtk::FileChooserButton test_fileChooser;
-      Gtk::Frame loss_frame;
-      Gtk::Box loss_box;
-      Gtk::Box loss_box2;
-      Gtk::Box loss_box3;
-      Gtk::Box loss_box4;
-      Gtk::Label loss_label;
-      Gtk::FileChooserButton loss_fileChooser;
-      Gtk::Label loss_label2;
-      Gtk::Label loss_label3;
-      Gtk::CheckButton loss_button;
-      Gtk::Entry loss_entry;
-      Gtk::FileChooserButton csv_fileChooser;
-      Gtk::Box csv_box;
-      Gtk::Label suspend_label;
-      Gtk::CheckButton suspend_button;
-      Gtk::Box suspend_box;
-      Gtk::Button trainButton;
+
+      Gtk::Label modelMetaLabel;
+			Gtk::FileChooserButton modelMetaFileChooser;
+			Gtk::Box modelMetaBox;
+			Gtk::Button createModelButton;
+			Gtk::Box modelBox;
+			Gtk::Frame modelFrame;
+
+			Gtk::Label trainDirectoryLabel;
+			Gtk::FileChooserButton trainDirectoryChooser;
+			Gtk::Box trainBox;
+			Gtk::Label testDirectoryLabel;
+			Gtk::FileChooserButton testDirectoryChooser;
+			Gtk::Box testBox;
+			Gtk::Box dataBox;
+			Gtk::Frame dataFrame;
+
+			Gtk::Label saveLossLabel;
+			Gtk::CheckButton saveLossCheckButton;
+			Gtk::Box lossSubBox1;
+			Gtk::Label lossDirectoryLabel;
+			Gtk::FileChooserButton lossDirectoryChooser;
+			Gtk::Box lossSubBox2;
+			Gtk::Label lossFileNameLabel;
+			Gtk::Entry lossFileNameEntry;
+			Gtk::Box lossSubBox3;
+			Gtk::Box lossBox;
+			Gtk::Frame lossFrame;
+
+			Gtk::Label epochLabel;
+			Gtk::SpinButton epochSpinButton;
+			Gtk::Box epochBox;
+
+			Gtk::Label lookbackLabel;
+			Gtk::SpinButton lookbackSpinButton;
+			Gtk::Box lookbackBox;
+
+			Gtk::Label downsampleLabel;
+			Gtk::SpinButton downsampleSpinButton;
+			Gtk::Box downsampleBox;
+
+			Gtk::Label suspendLabel;
+			Gtk::CheckButton suspendCheckButton;
+			Gtk::Box suspendBox;
+
+			Gtk::Button trainButton;
+
       train_window *trainWindow;
 
       void on_create_model_button_clicked();

@@ -1,6 +1,8 @@
 #ifndef TRAIN_WINDOW_H
 #define TRAIN_WINDOW_H
 
+#include <vector>
+
 #include <gtkmm-3.0/gtkmm.h>
 
 #include "../core/train_session.h"
@@ -35,6 +37,7 @@ namespace ssbml
       Gtk::Box etaBox;
 
       Gtk::Label modelLabel;
+			Gtk::Label modelLabel2;
       Gtk::ProgressBar modelProgressBar;
       Gtk::Box modelBox;
 
@@ -42,13 +45,13 @@ namespace ssbml
       Gtk::Box box;
       Glib::Dispatcher dispatcher;
 
-      train_window(bool suspendOnCompletion, uint64_t batchSize,
-        uint64_t totalEpochs, std::string metaFile,
+			std::vector<double> losses;
+      train_window(bool suspendOnCompletion, uint64_t downsampleRate,
+				uint64_t lookback, uint64_t totalEpochs, std::string metaFile,
         std::string trainingDataDir);
 
     protected:
-      uint64_t totalEpochs;
-      uint64_t batchSize;
+			uint64_t totalEpochs;
       train_session trainSession;
 
       void on_create_model_button_clicked();

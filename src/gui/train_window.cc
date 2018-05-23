@@ -1,8 +1,8 @@
 #include "train_window.h"
 
 ssbml::gui::train_window::train_window(bool suspendOnCompletion,
-  uint64_t batchSize, uint64_t totalEpochs, std::string metaFile,
-  std::string trainingDataDir) :
+	uint64_t downsampleRate, uint64_t lookback, uint64_t totalEpochs,
+	std::string metaFile, std::string trainingDataDir) :
   epochLabel(""),
   totalBox(Gtk::ORIENTATION_VERTICAL, 10),
   fileNameLabel(""),
@@ -15,13 +15,13 @@ ssbml::gui::train_window::train_window(bool suspendOnCompletion,
   etaLabel("ETA:\t"),
   etaBox(Gtk::ORIENTATION_HORIZONTAL, 10),
   modelLabel("Loading model..."),
+	modelLabel2(""),
   modelBox(Gtk::ORIENTATION_VERTICAL, 10),
   infoBox(Gtk::ORIENTATION_VERTICAL, 10),
   box(Gtk::ORIENTATION_VERTICAL, 10),
   totalEpochs(totalEpochs),
-  batchSize(batchSize),
-  trainSession(metaFile, trainingDataDir, totalEpochs, batchSize, 256, 144,
-    suspendOnCompletion, dispatcher)
+  trainSession(metaFile, trainingDataDir, suspendOnCompletion, downsampleRate,
+		128, 72, lookback,totalEpochs, dispatcher)
 {
   set_title("Train Session");
   set_border_width(20);
@@ -30,6 +30,8 @@ ssbml::gui::train_window::train_window(bool suspendOnCompletion,
 
   modelLabel.set_halign(Gtk::ALIGN_CENTER);
   modelBox.add(modelLabel);
+	modelLabel2.set_halign(Gtk::ALIGN_CENTER);
+	modelBox.add(modelLabel2);
   modelProgressBar.set_pulse_step(0.1);
   modelBox.add(modelProgressBar);
   box.add(modelBox);
@@ -95,6 +97,7 @@ void ssbml::gui::train_window::get_train_info()
     {
       modelBox.set_visible(true);
       infoBox.set_visible(false);
+			modelLabel2.set_text(time_to_string(info.timeTaken));
       modelLabel.set_text("Saving model...");
       modelProgressBar.pulse();
     }

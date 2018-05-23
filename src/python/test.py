@@ -1,58 +1,47 @@
 import sys
 from enum import Enum
 
+import numpy as np
+
 import model
 import gamepad
 import child_program
 
-class from_child_flag(Enum):
-    test_batch_request_ack = b'\x02'
-
 class to_child_flag(Enum):
-    test_batch_request = b'\x02'
+	test = b'\x02'
+	clear_lstm_state = b'\x03'
 
 def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
+	print(*args, file=sys.stderr, **kwargs)
 
 def main():
-    if len(sys.argv) != 4:
-        eprint("Incorrect number of arguments")
-        return
+	if len(sys.argv) != 4:
+		eprint("Incorrect number of arguments")
+		return
 
-    modelSrc = sys.argv[1]
-    frameWidth = int(sys.argv[2])
-    frameHeight = int(sys.argv[3])
-    sess, videoInput, gamepadInput, buttonOutput, buttonTarget, analogOutput, \
-        analogTarget, lstmFinalState, lstmInitialState, lstmState, optimizer, \
-        loss \
-        = model.load_model(modelSrc, frameWidth, frameHeight, 1)
+	modelSrc = sys.argv[1]
+	frameWidth = int(sys.argv[2])
+	frameHeight = int(sys.argv[3])
+	instance = model.test_model(frameWidth, frameHeight)
+	sess = instance.load(modelSrc)
 
-    child_program.send_init_flag()
-    while True:
-        flag = child_program.next_flag();
-        if flag == child_program.to_child_flag.shutdown_request.value:
-            break
-        elif flag == to_child_flag.test_batch_request.value:
-            videoInput2, gamepadInput2 = gamepad.get_data(frameWidth, frameHeight)
-            gamepadOutput = sess.run(
-                [buttonOutput, analogOutput],
-                feed_dict =
-                {
-                    videoInput: videoInput2,
-                    gamepadInput: gamepadInput2
-                    #lstmInitialState: lstmState
-                }
-            )
-            #eprint(gamepadOutput)
-            child_program.write(from_child_flag.test_batch_request_ack, \
-                gamepad.compress_gamepad(gamepadOutput))
-        else:
-            eprint("Received unkown flag ", flag)
-            break
+	child_program.write_flag(child_program.from_child_flag.child_initialized)
+	while True:
+		flag = child_program.next_flag();
+		if flag == to_child_flag.test.value:
+			videoInput = gamepad.get_image_data(frameWidth, frameHeight)
+			gamepadOutput = instance.run(sess, videoInput)
+			child_program.write_data(gamepad.compress_gamepad(gamepadOutput))
+		elif flag == to_child_flag.clear_lstm_state.value:
+			instance.clear_lstm_state(sess)
+		elif flag == child_program.to_child_flag.shutdown_request.value:
+			break
+		else:
+			eprint("Received unkown flag ", flag)
+			break
 
-    sess.close()
-    child_program.terminate()
-
+	sess.close()
+	child_program.write_flag(child_program.from_child_flag.child_terminated)
 
 if __name__ == "__main__":
-    main()
+	main()

@@ -24,11 +24,15 @@ void ssbml::gui::train_page::on_create_model_button_clicked()
 
 void ssbml::gui::train_page::on_train_button_clicked()
 {
-  bool suspendOnCompletion = loss_button.get_active();
-  std::string lossDir = loss_fileChooser.get_filename();
-  std::string lossFileName = loss_entry.get_text();
-  std::string metaFile = model_fileChooser.get_filename();
-  std::string trainDataDir = train_fileChooser.get_filename();
+	bool saveLoss = saveLossCheckButton.get_active();
+  bool suspendOnCompletion = suspendCheckButton.get_active();
+	uint64_t downsampleRate = downsampleSpinButton.get_value_as_int();
+	uint64_t lookback = lookbackSpinButton.get_value_as_int();
+	uint64_t totalEpochs = epochSpinButton.get_value_as_int();
+  std::string lossDir = lossDirectoryChooser.get_filename();
+  std::string lossFileName = lossFileNameEntry.get_text();
+  std::string metaFile = modelMetaFileChooser.get_filename();
+  std::string trainDataDir = trainDirectoryChooser.get_filename();
   if (trainDataDir.empty())
   {
     Gtk::MessageDialog dialog(mainWindow, "Missing Training Data Directory",
@@ -44,7 +48,7 @@ void ssbml::gui::train_page::on_train_button_clicked()
     dialog.set_secondary_text("You must select a .meta file");
     dialog.run();
   }
-  else if (suspendOnCompletion)
+  else if (saveLoss)
   {
     if (lossDir.empty())
     {
@@ -66,8 +70,7 @@ void ssbml::gui::train_page::on_train_button_clicked()
   else
   {
     trainWindow = new ssbml::gui::train_window(suspendOnCompletion,
-      batch_spinButton.get_value_as_int(), epoch_spinButton.get_value_as_int(),
-      metaFile, trainDataDir);
+      downsampleRate, lookback, totalEpochs, metaFile, trainDataDir);
     trainWindow->signal_delete_event().connect(sigc::mem_fun(*this,
       &train_page::on_train_window_closed));
     trainWindow->set_transient_for(mainWindow);
@@ -78,100 +81,107 @@ void ssbml::gui::train_page::on_train_button_clicked()
 ssbml::gui::train_page::train_page(Gtk::Window &mainWindow) :
   Box(Gtk::ORIENTATION_VERTICAL, 10),
   mainWindow(mainWindow),
-  model_frame("Model To Train"),
-  model_box(Gtk::ORIENTATION_VERTICAL, 10),
-  model_box2(Gtk::ORIENTATION_HORIZONTAL, 10),
-  model_label("Meta File:\t"),
-  model_button("Create Model"),
-  epoch_box(Gtk::ORIENTATION_HORIZONTAL, 10),
-  epoch_label("Number Of Epochs:\t"),
-  epoch_spinButton(Gtk::Adjustment::create(10.0, 1.0, 9999.0, 1.0, 10.0, 0.0),
+
+  modelMetaLabel("Meta File:\t"),
+	modelMetaBox(Gtk::ORIENTATION_HORIZONTAL, 10),
+  createModelButton("Create Model"),
+	modelBox(Gtk::ORIENTATION_VERTICAL, 10),
+  modelFrame("Model To Train"),
+
+  trainDirectoryLabel("Training Data Directory:\t"),
+  trainDirectoryChooser(Gtk::FILE_CHOOSER_ACTION_SELECT_FOLDER),
+  trainBox(Gtk::ORIENTATION_HORIZONTAL, 10),
+  testDirectoryLabel("Testing Data Directory:\t"),
+  testDirectoryChooser(Gtk::FILE_CHOOSER_ACTION_SELECT_FOLDER),
+	testBox(Gtk::ORIENTATION_HORIZONTAL, 10),
+	dataBox(Gtk::ORIENTATION_VERTICAL, 10),
+	dataFrame("Data Directories"),
+
+	saveLossLabel("Save Loss Values:\t"),
+	lossSubBox1(Gtk::ORIENTATION_HORIZONTAL, 10),
+	lossDirectoryLabel("Directory:\t"),
+	lossDirectoryChooser(Gtk::FILE_CHOOSER_ACTION_SELECT_FOLDER),
+	lossSubBox2(Gtk::ORIENTATION_HORIZONTAL, 10),
+	lossFileNameLabel("File Name:\t"),
+	lossSubBox3(Gtk::ORIENTATION_HORIZONTAL, 10),
+	lossBox(Gtk::ORIENTATION_VERTICAL, 10),
+	lossFrame("Loss Values"),
+
+	epochLabel("Number Of Epochs:\t"),
+	epochSpinButton(Gtk::Adjustment::create(10.0, 1.0, 9999.0, 1.0, 10.0, 0.0),
     1, 0),
-  batch_box(Gtk::ORIENTATION_HORIZONTAL, 10),
-  batch_label("Batch Size:\t\t\t"),
-  batch_spinButton(Gtk::Adjustment::create(200.0, 200.0, 1000.0, 200.0, 2000.0, 0.0),
-    1, 0),
-  data_frame("Data Directories"),
-  data_box(Gtk::ORIENTATION_VERTICAL, 10),
-  train_box(Gtk::ORIENTATION_HORIZONTAL, 10),
-  train_label("Training Data Directory:\t"),
-  train_fileChooser(Gtk::FILE_CHOOSER_ACTION_SELECT_FOLDER),
-  test_box(Gtk::ORIENTATION_HORIZONTAL, 10),
-  test_label("Testing Data Directory:\t"),
-  test_fileChooser(Gtk::FILE_CHOOSER_ACTION_SELECT_FOLDER),
-  loss_frame("Loss Values"),
-  loss_box(Gtk::ORIENTATION_VERTICAL, 10),
-  loss_box2(Gtk::ORIENTATION_HORIZONTAL, 10),
-  loss_box3(Gtk::ORIENTATION_HORIZONTAL, 10),
-  loss_box4(Gtk::ORIENTATION_HORIZONTAL, 10),
-  loss_label("Save Loss Values:\t"),
-  loss_fileChooser(Gtk::FILE_CHOOSER_ACTION_SELECT_FOLDER),
-  loss_label2("Directory:\t\t"),
-  loss_label3("File Name:\t"),
-  suspend_label("Suspend OS On Completion:\t"),
-  suspend_box(Gtk::ORIENTATION_HORIZONTAL, 10),
+	epochBox(Gtk::ORIENTATION_HORIZONTAL, 10),
+
+	lookbackLabel("Loopback (seconds):\t"),
+	lookbackSpinButton(Gtk::Adjustment::create(3.0, 1.0, 9999.0, 1.0, 10.0, 0.0),
+		1, 0),
+	lookbackBox(Gtk::ORIENTATION_HORIZONTAL, 10),
+
+	downsampleLabel("Downsample Rate:\t"),
+	downsampleSpinButton(Gtk::Adjustment::create(4.0, 1.0, 9999.0, 1.0, 10.0, 0.0),
+		1, 0),
+	downsampleBox(Gtk::ORIENTATION_HORIZONTAL, 10),
+
+	suspendCheckButton("Suspend OS On Completion:\t"),
+	suspendBox(Gtk::ORIENTATION_HORIZONTAL, 10),
+
   trainButton("Train")
 {
   set_border_width(20);
 
-  model_button.signal_clicked().connect(sigc::mem_fun(*this,
+  modelMetaBox.add(modelMetaLabel);
+  modelMetaBox.add(modelMetaFileChooser);
+  modelBox.add(modelMetaBox);
+	createModelButton.signal_clicked().connect(sigc::mem_fun(*this,
     &train_page::on_create_model_button_clicked));
+  createModelButton.set_halign(Gtk::ALIGN_START);
+  createModelButton.set_valign(Gtk::ALIGN_START);
+  modelBox.add(createModelButton);
+  modelBox.set_border_width(10);
+  modelFrame.add(modelBox);
+  add(modelFrame);
 
-  model_box2.add(model_label);
-  model_box2.add(model_fileChooser);
-  model_box.add(model_box2);
+  trainBox.add(trainDirectoryLabel);
+  trainBox.add(trainDirectoryChooser);
+  dataBox.add(trainBox);
+  testBox.add(testDirectoryLabel);
+  testBox.add(testDirectoryChooser);
+  dataBox.add(testBox);
+  dataBox.set_border_width(10);
+  dataFrame.add(dataBox);
+  add(dataFrame);
 
-  model_button.set_halign(Gtk::ALIGN_START);
-  model_button.set_valign(Gtk::ALIGN_START);
-  model_box.add(model_button);
+	lossSubBox1.add(saveLossLabel);
+	saveLossCheckButton.signal_toggled().connect(sigc::mem_fun(*this,
+		&train_page::on_loss_button_toggled));
+	lossSubBox1.add(saveLossCheckButton);
+	lossBox.add(lossSubBox1);
+	lossSubBox2.add(lossDirectoryLabel);
+	lossSubBox2.add(lossDirectoryChooser);
+	lossBox.add(lossSubBox2);
+	lossSubBox3.add(lossFileNameLabel);
+	lossFileNameEntry.set_text("loss.csv");
+	lossSubBox3.add(lossFileNameEntry);
+	lossBox.add(lossSubBox3);
+	lossBox.set_border_width(10);
+	lossFrame.add(lossBox);
+	add(lossFrame);
 
-  model_box.set_border_width(10);
-  model_frame.add(model_box);
-  add(model_frame);
+  epochBox.add(epochLabel);
+  epochBox.add(epochSpinButton);
+  add(epochBox);
 
-  train_box.add(train_label);
-  train_box.add(train_fileChooser);
-  data_box.add(train_box);
+  lookbackBox.add(lookbackLabel);
+  lookbackBox.add(lookbackSpinButton);
+  add(lookbackBox);
 
-  test_box.add(test_label);
-  test_box.add(test_fileChooser);
-  data_box.add(test_box);
+	downsampleBox.add(downsampleLabel);
+	downsampleBox.add(downsampleSpinButton);
+	add(downsampleBox);
 
-  data_box.set_border_width(10);
-  data_frame.add(data_box);
-  add(data_frame);
-
-  loss_box2.add(loss_label);
-  loss_button.set_active(true);
-  loss_button.signal_toggled().connect(sigc::mem_fun(*this,
-    &train_page::on_loss_button_toggled));
-  loss_box2.add(loss_button);
-  loss_box.add(loss_box2);
-
-  loss_box3.add(loss_label2);
-  loss_box3.add(loss_fileChooser);
-  loss_box.add(loss_box3);
-
-  loss_box4.add(loss_label3);
-  loss_entry.set_text("loss.csv");
-  loss_box4.add(loss_entry);
-  loss_box.add(loss_box4);
-
-  loss_box.set_border_width(10);
-  loss_frame.add(loss_box);
-  add(loss_frame);
-
-  epoch_box.add(epoch_label);
-  epoch_box.add(epoch_spinButton);
-  add(epoch_box);
-
-  batch_box.add(batch_label);
-  batch_box.add(batch_spinButton);
-  add(batch_box);
-
-  suspend_box.add(suspend_label);
-  suspend_box.add(suspend_button);
-  add(suspend_box);
+  suspendBox.add(suspendLabel);
+  suspendBox.add(suspendCheckButton);
+  add(suspendBox);
 
   trainButton.signal_clicked().connect(sigc::mem_fun(*this,
     &train_page::on_train_button_clicked));
@@ -184,15 +194,15 @@ ssbml::gui::train_page::train_page(Gtk::Window &mainWindow) :
 
 void ssbml::gui::train_page::on_loss_button_toggled()
 {
-  bool toggle = loss_button.get_active();
+  bool toggle = saveLossCheckButton.get_active();
   if (toggle)
   {
-    loss_box3.set_sensitive(true);
-    loss_box4.set_sensitive(true);
+    lossSubBox2.set_sensitive(true);
+    lossSubBox3.set_sensitive(true);
   }
   else
   {
-    loss_box3.set_sensitive(false);
-    loss_box4.set_sensitive(false);
+    lossSubBox2.set_sensitive(false);
+    lossSubBox3.set_sensitive(false);
   }
 }

@@ -18,6 +18,7 @@ extern "C"
 #include <cuda.h>
 
 #include "video_output.h"
+#include "util.h"
 
 namespace ssbml
 {
@@ -32,6 +33,7 @@ namespace ssbml
 
     void get_frame(uint8_t *rgbBuf);
     void get_frame(AVFrame &frame);
+		void skip_frame();
     uint64_t get_frame_width();
     uint64_t get_frame_height();
     uint64_t get_total_frames();

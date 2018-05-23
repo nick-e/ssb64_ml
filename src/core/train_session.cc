@@ -17,7 +17,7 @@ void ssbml::train_session::create_model(std::string dstDir)
 {
   char buf[1024];
   FILE *in = popen(("python ../src/python/create_model.py " + dstDir
-    + " 256 144").c_str(), "r");
+    + " 128 72").c_str(), "r");
   size_t length;
   while ((length = fread(buf, 1, sizeof(buf), in)))
   {
@@ -44,10 +44,10 @@ bool has_suffix(const std::string &str, const std::string &suffix)
            str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
-static uint64_t get_record_file_names(std::string directory,
+static uint64_t get_files(std::string directory,
   std::vector<std::string> &fileNames)
 {
-  uint64_t totalFrames = 0;
+  uint64_t totalFrameCount = 0;
 
   DIR *dir = opendir(directory.c_str());
   struct dirent *entry;
@@ -57,12 +57,13 @@ static uint64_t get_record_file_names(std::string directory,
   }
   while ((entry = readdir(dir)) != NULL)
   {
+    struct stat s;
     std::string videoFileName = directory + "/" + entry->d_name;
+
     if (!has_suffix(videoFileName, ".mp4"))
     {
       continue;
     }
-    struct stat s;
     if (stat(videoFileName.c_str(), &s) < 0)
     {
       throw std::runtime_error(std::string("stat: ") + strerror(errno));
@@ -74,22 +75,23 @@ static uint64_t get_record_file_names(std::string directory,
 
     ssbml::video_file videoFile(videoFileName);
     fileNames.push_back(videoFileName.substr(0, videoFileName.find_last_of(".")));
-    totalFrames += videoFile.get_total_frames();
+    totalFrameCount += videoFile.get_total_frames();;
   }
   closedir(dir);
 
-  return totalFrames;
+  return totalFrameCount;
 }
 
 ssbml::train_session::train_session(std::string metaFile,
-  std::string trainingDataDir, uint64_t totalEpochs, uint64_t batchSize,
-  uint64_t frameWidth, uint64_t frameHeight, bool suspendOnCompletion,
-  Glib::Dispatcher &dispatcher) :
+	std::string trainingDataDir, bool suspendOnCompletion,
+	uint64_t downsampleRate, uint64_t frameWidth, uint64_t frameHeight,
+	uint64_t lookback, uint64_t totalEpochs, Glib::Dispatcher &dispatcher) :
   dispatcher(dispatcher),
   suspendOnCompletion(suspendOnCompletion),
-  batchSize(batchSize),
+	downsampleRate(downsampleRate),
   frameHeight(frameHeight),
   frameWidth(frameWidth),
+	lookback(lookback),
   totalEpochs(totalEpochs),
   metaFile(metaFile),
   trainingDataDir(trainingDataDir),
@@ -105,6 +107,69 @@ ssbml::train_session::~train_session()
   trainThread.join();
 }
 
+static void get_data(uint64_t rate, ssbml::video_file &videoFile,
+	ssbml::gamepad_file &gamepadFile, uint8_t *rgbBuf, uint8_t *gamepadBuf)
+{
+	int16_t buttons;
+	int32_t x;
+	int32_t y;
+	int32_t z;
+	int32_t rx;
+	int32_t ry;
+	int32_t rz;
+	float hat0x;
+	float hat0y;
+	ssbml::gamepad::compressed tmp;
+
+	videoFile >> rgbBuf;
+	gamepadFile >> tmp;
+	buttons = tmp.buttons;
+	x = tmp.analogs.x;
+	y = tmp.analogs.y;
+	z = tmp.analogs.z;
+	rx = tmp.analogs.rx;
+	ry = tmp.analogs.ry;
+	rz = tmp.analogs.rz;
+	hat0x = tmp.analogs.hat0x;
+	hat0y = tmp.analogs.hat0y;
+
+	for (uint64_t i = 1; i < rate; ++i)
+	{
+		gamepadFile >> tmp;
+		videoFile.skip_frame();
+		buttons |= tmp.buttons;
+		x += tmp.analogs.x;
+		y += tmp.analogs.y;
+		z += tmp.analogs.z;
+		rx += tmp.analogs.rx;
+		ry += tmp.analogs.ry;
+		rz += tmp.analogs.rz;
+		hat0x += tmp.analogs.hat0x;
+		hat0y += tmp.analogs.hat0y;
+	}
+
+	x /= rate;
+	y /= rate;
+	z /= rate;
+	rx /= rate;
+	ry /= rate;
+	rz /= rate;
+	hat0x /= rate;
+	hat0y /= rate;
+
+	tmp.buttons = buttons;
+	tmp.analogs.x = x;
+	tmp.analogs.y = y;
+	tmp.analogs.z = z;
+	tmp.analogs.rx = rx;
+	tmp.analogs.ry = ry;
+	tmp.analogs.rz = rz;
+	tmp.analogs.hat0x = (hat0x < -0.5) ? -1 : (hat0x > 0.5 ? 1 : 0);
+	tmp.analogs.hat0y = (hat0y <= -0.5) ? -1 : (hat0y >= 0.5 ? 1 : 0);
+
+	memcpy(gamepadBuf, &tmp, sizeof(tmp));
+}
+
 void ssbml::train_session::train_thread_routine(
   ssbml::train_session &trainSession)
 {
@@ -117,12 +182,13 @@ void ssbml::train_session::train_thread_routine(
   uint8_t *gamepadBuf;
   uint8_t *labelBuf;
   uint8_t *rgbBuf;
+	uint64_t batchSize = trainSession.lookback * 40 / trainSession.downsampleRate;
   uint64_t gamepadBufSize = sizeof(ssbml::gamepad::compressed);
   uint64_t rgbBufSize = trainSession.frameWidth * trainSession.frameHeight * 3;
   uint64_t bufSize = rgbBufSize + gamepadBufSize * 2;
-  uint64_t totalFrames = 0;
-  uint64_t totalFramesPerEpoch = 0;
-  uint64_t trainedFrames = 0;
+  uint64_t totalFrameCount = 0;
+  uint64_t epochFrameCount = 0;
+  uint64_t trainedTotalFrameCount = 0;
   std::string modelName = trainSession.metaFile.substr(0,
     trainSession.metaFile.find_last_of("."));
   std::vector<std::string> trainingFiles;
@@ -144,16 +210,17 @@ void ssbml::train_session::train_thread_routine(
     .timeTaken = 0
   };
 
+	std::cout << batchSize << ", " << trainSession.lookback << ", " << trainSession.downsampleRate << std::endl;
+
   trainSession.set_info(info);
-  totalFramesPerEpoch = get_record_file_names(trainSession.trainingDataDir,
-    trainingFiles);
-  totalFrames = totalFramesPerEpoch * trainSession.totalEpochs;
+  epochFrameCount = get_files(trainSession.trainingDataDir, trainingFiles);
+  totalFrameCount = epochFrameCount * trainSession.totalEpochs;
   info.totalFiles = trainingFiles.size();
 
   sprintf(tmp1, "%s", modelName.c_str());
   sprintf(tmp2, "%s", std::to_string(trainSession.frameWidth).c_str());
   sprintf(tmp3, "%s", std::to_string(trainSession.frameHeight).c_str());
-  sprintf(tmp4, "%s", std::to_string(trainSession.batchSize).c_str());
+  sprintf(tmp4, "%s", std::to_string(batchSize).c_str());
   args.push_back(const_cast<char*>("python"));
   args.push_back(const_cast<char*>("../src/python/train.py"));
   args.push_back(tmp1);
@@ -167,6 +234,9 @@ void ssbml::train_session::train_thread_routine(
   rgbBuf = buf;
   gamepadBuf = rgbBuf + rgbBufSize;
   labelBuf = gamepadBuf + gamepadBufSize;
+
+	try
+	{
   while (!trainSession.quit && (received = childProgram.try_read_from(buf,
     bufSize)) < 0)
   {
@@ -192,51 +262,64 @@ void ssbml::train_session::train_thread_routine(
     && !trainSession.quit; ++currentEpoch)
   {
     double avgLoss = 0;
-    uint64_t trainedFramesPerEpoch = 0;
+		uint64_t trainedBatches = 0;
+    uint64_t trainedEpochFrames = 0;
     info.currentEpoch = currentEpoch;
+    std::random_shuffle(trainingFiles.begin(), trainingFiles.end());
 
-    for (std::vector<std::string>::size_type currentFileIndex = 0;
-      currentFileIndex < trainingFiles.size() && !trainSession.quit;
-      ++currentFileIndex)
+    uint64_t fileIndex = 0;
+    for (std::string fileName : trainingFiles)
     {
-      std::string currentFileName = trainingFiles[currentFileIndex];
-      ssbml::video_file videoFile(currentFileName + ".mp4");
-      ssbml::gamepad_file gamepadFile(currentFileName + ".gamepad");
-      uint64_t currentFileFrameCount = videoFile.get_total_frames();
-      uint64_t batches = currentFileFrameCount / trainSession.batchSize;
-      uint64_t excessFrames = currentFileFrameCount - batches
-        * trainSession.batchSize;
-      if (excessFrames == 0)
+      ssbml::video_file videoFile(fileName + ".mp4");
+      ssbml::gamepad_file gamepadFile(fileName + ".gamepad");
+      uint64_t fileFrameCount = videoFile.get_total_frames();
+      info.currentFileName = fileName;
+      info.currentFileFrameCount = fileFrameCount;
+      info.currentFileIndex = fileIndex++;
+
+      if (fileFrameCount < batchSize + 1)
       {
-        --batches;
-        excessFrames += 10;
+        trainedTotalFrameCount += fileFrameCount;
+        trainedEpochFrames += fileFrameCount;
+        continue;
       }
-      info.currentFileName = currentFileName;
-      info.currentFileFrameCount = currentFileFrameCount;
-      info.currentFileIndex = currentFileIndex;
 
-      for (uint64_t currentBatch = 0; currentBatch < batches
-        && !trainSession.quit; ++currentBatch)
+      childProgram.write_to((uint8_t)to_child_flag::new_file);
+      gamepadFile.get_next();
+      for (uint64_t i = 0; i < batchSize - 1 && !trainSession.quit; ++i)
       {
-        info.fileProgress = (double)currentBatch / batches;
-        info.epochProgress = (double)trainedFramesPerEpoch
-          / totalFramesPerEpoch;
-        info.totalProgress = (double)trainedFrames / totalFrames;
-        info.currentFrame = currentBatch * trainSession.batchSize;
+				get_data(trainSession.downsampleRate, videoFile, gamepadFile, rgbBuf,
+					gamepadBuf);
+        childProgram.write_to(rgbBuf, rgbBufSize);
+      }
+      trainedTotalFrameCount += (batchSize - 1) * trainSession.downsampleRate;
+      trainedEpochFrames += (batchSize - 1) * trainSession.downsampleRate;;
+      info.currentFrame = (batchSize - 1) * trainSession.downsampleRate;;
+      info.fileProgress = (double)info.currentFrame / fileFrameCount;
+      info.epochProgress = (double)trainedEpochFrames / epochFrameCount;
+      info.totalProgress = (double)trainedTotalFrameCount / totalFrameCount;
+      info.timeTaken = timer.total_time();
+      info.eta = 0;
+      trainSession.set_info(info);
 
-        childProgram.write_to((uint8_t)to_child_flag::train_batch_request);
-        for (uint64_t currentFrame = 0; currentFrame < trainSession.batchSize;
-          ++currentFrame)
-        {
-          videoFile >> rgbBuf;
-          gamepadFile >> gamepadBuf;
-          gamepadFile >> labelBuf;
-          gamepadFile.rewind();
-          childProgram.write_to(buf, rgbBufSize + gamepadBufSize * 2);
-        }
+      for (uint64_t frameIndex = batchSize * trainSession.downsampleRate;
+        frameIndex < fileFrameCount - trainSession.downsampleRate
+					&& !trainSession.quit;
+				frameIndex += trainSession.downsampleRate)
+      {
+        childProgram.write_to((uint8_t)to_child_flag::train);
+				get_data(trainSession.downsampleRate, videoFile, gamepadFile, rgbBuf,
+					gamepadBuf);
+        childProgram.write_to(buf, rgbBufSize + gamepadBufSize);
+        trainedTotalFrameCount += trainSession.downsampleRate;
+        trainedEpochFrames += trainSession.downsampleRate;
+				++trainedBatches;
+        info.currentFrame = frameIndex;
+        info.fileProgress = (double)info.currentFrame / fileFrameCount;
+        info.epochProgress = (double)trainedEpochFrames / epochFrameCount;
+        info.totalProgress = (double)trainedTotalFrameCount / totalFrameCount;
         info.timeTaken = timer.total_time();
-        info.eta = timer.get_delta_time() / trainSession.batchSize * (totalFrames - trainedFrames);
-        info.eta = ((info.eta + 1000000 / 2) / 1000000) * 1000000;
+        info.eta = 0;
         trainSession.set_info(info);
 
         while (!trainSession.quit && (received = childProgram.try_read_from(buf,
@@ -244,24 +327,16 @@ void ssbml::train_session::train_thread_routine(
           ;
         if (received > 0)
         {
-          if (buf[0] == (uint8_t)from_child_flag::train_batch_request_ack)
-          {
-            avgLoss += ((float*)(buf + 1))[0];
-          }
-          else
-          {
-            std::cerr << "Received unknown flag 0x" << std::setfill('0')
-              << std::setw(2) << std::hex << (uint32_t)buf[0] << std::endl;
-          }
+          avgLoss += ((float*)buf)[0];
+					std::cout << "\r" << (avgLoss / trainedBatches) << std::flush;
         }
-        trainedFrames += trainSession.batchSize;
-        trainedFramesPerEpoch += trainSession.batchSize;
       }
-      trainedFrames += excessFrames;
-      trainedFramesPerEpoch += excessFrames;
+
+			trainedTotalFrameCount += fileFrameCount % trainSession.downsampleRate;
+			trainedEpochFrames += fileFrameCount % trainSession.downsampleRate;
     }
 
-    avgLoss /= totalFramesPerEpoch;
+    avgLoss /= trainedBatches;
     std::cout << "train loss = " << avgLoss << std::endl;
   }
 
@@ -275,8 +350,7 @@ void ssbml::train_session::train_thread_routine(
 
   if (!trainSession.quit)
   {
-    childProgram.write_to(
-      (uint8_t)ssbml::train_session::to_child_flag::save_model_request);
+    childProgram.write_to((uint8_t)ssbml::train_session::to_child_flag::save);
   }
 
   while (!trainSession.quit && (received = childProgram.try_read_from(buf,
@@ -290,7 +364,7 @@ void ssbml::train_session::train_thread_routine(
     uint8_t flag = buf[0];
     switch (flag)
     {
-      case (uint8_t)ssbml::train_session::from_child_flag::save_model_request_ack:
+      case (uint8_t)ssbml::train_session::from_child_flag::save_ack:
         break;
       default:
         std::cerr << "Received unknown flag 0x" << std::setfill('0')
@@ -306,8 +380,14 @@ void ssbml::train_session::train_thread_routine(
     trainSession.set_info(info);
     if (trainSession.suspendOnCompletion)
     {
+			std::cout << "called suspend" << std::endl;
       std::system("systemctl suspend");
     }
   }
+	}
+	catch (const std::runtime_error &e)
+	{
+		std::cout << e.what() << std::endl;
+	}
   delete[] buf;
 }

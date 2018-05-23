@@ -8,11 +8,9 @@ void ssbml::test_session::test_thread_routine(ssbml::test_session &testSession)
   double microsecondsBetweenFrames = 1000000.0 / testSession.fps;
   ssize_t received;
   uint64_t rgbBufSize = testSession.frameWidth * testSession.frameHeight * 3;
-  uint64_t gamepadBufSize = sizeof(ssbml::gamepad::compressed);
-  uint64_t bufSize = 1 + rgbBufSize + gamepadBufSize;
+  uint64_t bufSize = 1 + rgbBufSize;
   uint8_t *buf = new uint8_t[bufSize];
   uint8_t *rgbBuf = buf + 1;
-  uint8_t *gamepadBuf = rgbBuf + rgbBufSize;
   std::vector<char*> args;
   std::string modelCkpt = testSession.modelMeta.substr(0,
     testSession.modelMeta.find_last_of("."));
@@ -67,6 +65,10 @@ void ssbml::test_session::test_thread_routine(ssbml::test_session &testSession)
       if (!testButtonPressed)
       {
         info.testing = !info.testing;
+        if (info.testing)
+        {
+          childProgram.write_to((uint8_t)to_child_flag::clear_lstm_state);
+        }
         testButtonPressed = true;
       }
     }
@@ -77,10 +79,8 @@ void ssbml::test_session::test_thread_routine(ssbml::test_session &testSession)
 
     if (info.testing)
     {
-      buf[0] = (uint8_t)ssbml::test_session::to_child_flag::test_batch_request;
-      testSession.gamepadSpoofer.compress(c);
+      buf[0] = (uint8_t)ssbml::test_session::to_child_flag::test;
       videoInput >> rgbBuf;
-      memcpy(gamepadBuf, &c, sizeof(c));
       childProgram.write_to(buf, bufSize);
 
       while (!testSession.quit && (received = childProgram.try_read_from(buf,
@@ -88,16 +88,8 @@ void ssbml::test_session::test_thread_routine(ssbml::test_session &testSession)
         ;
       if (received > 0)
       {
-        if (buf[0] == (uint8_t)from_child_flag::test_batch_request_ack)
-        {
-          memcpy(&info.c, buf + 1, sizeof(c));
-          testSession.gamepadSpoofer << info.c;
-        }
-        else
-        {
-          std::cerr << "Received unknown flag 0x" << std::setfill('0')
-            << std::setw(2) << std::hex << (uint32_t)buf[0] << std::endl;
-        }
+        memcpy(&info.c, buf, sizeof(c));
+        testSession.gamepadSpoofer << info.c;
       }
     }
     else
