@@ -42,8 +42,10 @@ def main():
 				child_program.write_flag(from_child_flag.save_ack)
 				break
 			elif flag == to_child_flag.train.value:
-				videoInputBatch.append(
-					[gamepad.get_image_data(frameWidth, frameHeight)])
+				frame = gamepad.get_image_data(frameWidth, frameHeight)
+				videoInputBatch.append([frame])
+				#gamepad.display_image(frame)
+				#break
 				buttonLabel, analogLabel = gamepad.get_gamepad_data()
 				loss = instance.run(
 					sess,

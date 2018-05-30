@@ -200,9 +200,9 @@ __global__ void rgba2rgb(const uint8_t *rgbaBuf, uint8_t *rgbBuf,
     int index = row * width + col;
     int index2 = index * 3;
     uint32_t pixel = ((uint32_t*)rgbaBuf)[index];
-    uint8_t red = (uint8_t)(pixel >> 16);
+    uint8_t red = (uint8_t)pixel;
     uint8_t green = (uint8_t)(pixel >> 8);
-    uint8_t blue = (uint8_t)pixel;
+    uint8_t blue = (uint8_t)(pixel >> 16);
 
     rgbBuf[index2] = red;
     rgbBuf[index2 + 1] = green;

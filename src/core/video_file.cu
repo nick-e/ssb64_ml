@@ -147,10 +147,6 @@ __global__ void yuv2rgb(uint8_t *rgbBuf, const uint8_t *lumaBuf,
     rgbBuf[index2] = red;
     rgbBuf[index2 + 1] = green;
     rgbBuf[index2 + 2] = blue;
-
-		rgbBuf[index2] = luma;
-		rgbBuf[index2 + 1] = luma;
-		rgbBuf[index2 + 2] = luma;
   }
 }
 
@@ -159,40 +155,37 @@ void ssbml::video_file::get_image()
   int ret;
   if (nextFrame < totalFrames)
   {
-    ret = av_read_frame(fctx, pkt);
-    if (ret < 0)
-    {
-      char errBuf[1024];
-      av_strerror(ret, errBuf, sizeof(errBuf));
-      throw std::runtime_error("av_read_frame: " + std::string(errBuf));
-    }
+		ret = avcodec_receive_frame(cctx, frame);
+		if (ret == AVERROR(EAGAIN))
+		{
+			ret = av_read_frame(fctx, pkt);
+			if (ret < 0)
+			{
+				char errBuf[1024];
+				av_strerror(ret, errBuf, sizeof(errBuf));
+				throw std::runtime_error("av_read_frame: " + std::string(errBuf));
+			}
+			ret = avcodec_send_packet(cctx, pkt);
+			if (ret < 0)
+			{
+				char errBuf[1024];
+				av_strerror(ret, errBuf, sizeof(errBuf));
+				throw std::runtime_error("avcodec_send_packet: " + std::string(errBuf));
+			}
+			get_image();
+		}
+		else if (ret < 0)
+		{
+			char errBuf[1024];
+			av_strerror(ret, errBuf, sizeof(errBuf));
+			throw std::runtime_error("avcodec_receive_frame: " + std::string(errBuf));
+		}
+		else
+		{
+			++nextFrame;
+		}
 
-
-    ret = avcodec_send_packet(cctx, pkt);
-    if (ret < 0)
-    {
-      char errBuf[1024];
-      av_strerror(ret, errBuf, sizeof(errBuf));
-      throw std::runtime_error("avcodec_send_packet: " + std::string(errBuf));
-    }
-
-    while (ret >= 0)
-    {
-      ret = avcodec_receive_frame(cctx, frame);
-      if (ret == AVERROR(EAGAIN))
-      {
-        break;
-      }
-      if (ret < 0)
-      {
-        char errBuf[1024];
-        av_strerror(ret, errBuf, sizeof(errBuf));
-        throw std::runtime_error("avcodec_receive_frame: " + std::string(errBuf));
-      }
-    }
-
-    av_packet_unref(pkt);
-    ++nextFrame;
+    //av_packet_unref(pkt);
   }
   else
   {
@@ -215,7 +208,6 @@ void ssbml::video_file::get_frame(uint8_t *rgbBuf)
   cudaDeviceSynchronize();
 
   cudaMemcpy(rgbBuf, this->rgbBuf, frameSize * 3, cudaMemcpyDeviceToHost);
-	cudaMemcpy(rgbBuf, this->rgbBuf, frameSize * 3, cudaMemcpyDeviceToHost);
 	create_ppm("/home/nick/Downloads/test.ppm", rgbBuf, cctx->width, cctx->height);
 }
 

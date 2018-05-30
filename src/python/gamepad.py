@@ -85,6 +85,10 @@ def get_data(frameWidth, frameHeight):
 
 	return (videoInput, gamepadInput)
 
+def display_image(rgbBuf):
+	image = Image.frombytes('RGB', (128,72), rgbBuf, 'raw')
+	image.show();
+
 def get_gamepad_data():
 	compressed = sys.stdin.buffer.read(gamepadCompressedSize)
 	return decompress_gamepad_binary(compressed)
@@ -92,14 +96,6 @@ def get_gamepad_data():
 def get_image_data(imageWidth, imageHeight):
 	size = imageWidth * imageHeight * 3
 	video = np.frombuffer(sys.stdin.buffer.read(size), dtype=np.dtype('uint8'), count=size)
-	video2 = bytes(video)
-	#Image.frombytes('L', (128, 72), video2, 'raw').show()
-	#for row in range(0, imageHeight):
-	#	eprint('')
-	#	for col in range(0, imageWidth):
-	#		index = (row * imageWidth + col) * 3
-	#		eprint(video2[index], video2[index + 1], video2[index + 2])
-	#sys.exit()
 	return video;
 
 def get_batch(batchSize, frameWidth, frameHeight):

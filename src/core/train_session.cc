@@ -210,8 +210,6 @@ void ssbml::train_session::train_thread_routine(
     .timeTaken = 0
   };
 
-	std::cout << batchSize << ", " << trainSession.lookback << ", " << trainSession.downsampleRate << std::endl;
-
   trainSession.set_info(info);
   epochFrameCount = get_files(trainSession.trainingDataDir, trainingFiles);
   totalFrameCount = epochFrameCount * trainSession.totalEpochs;
